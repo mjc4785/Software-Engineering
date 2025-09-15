@@ -2,7 +2,7 @@
 
 Currently, the state of the accessability on UMBC's campus leaves much to be desired. As well, even just trying to find out how to get from point A to point B is a hassle. With this project, we want to make it easy to find a route to any location on campus that somebody would want, while also making it accessable to anybody and everybody. 
 
-The idea for this project comes from Emily (insert last name when we know), Her email is (Ask if we can include her email). 
+The idea for this project comes from Emily (insert last name when we know), Her email is (Ask if we can include her email). Testing testing
 
 ## Contacts for project
 
