@@ -31,6 +31,11 @@ In the NESTED UMBCNavigator folder we have 5 files
 - **urls.py**: Holds the urls needed for the website's possible pages and views. This also makes sure that the correct page is the one shown. 
 - **wsgi.py**: (Web Server Gateway Interface) Allows for simple one at a time processing or functions. For example, GET or POST calls like POSTing a venmo transaction or GETting the public transaction information posted to venmo.
 
+There also exists a "react-native" file for any front end work we may be doing. this folder contains two entries:
+- **text.txt**: A text file simply as a place holder for any other things that may be added to the directory
+- **html**: A folder that holds two other files. 
+    - **first.html**: A sample file for how to write simple html
+    - **two.html**: A sample file for how to incorperate OSM onto html
 
 ## Install and Setup
 
