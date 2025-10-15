@@ -1,0 +1,17 @@
+Here are the steps for using git, EVERY TIME you start coding.
+
+$ git clone <repo_url> //only use this the first time you're getting the repo.
+
+$ git checkout -b <name_your_branch!> //name the branch something creative
+
+CODE YOUR HEART OUT
+
+$ git add . // add all your files with "." or selective files like this:
+	or 
+$ git add fileName.txt SecondFile.py //tells computer what things to try to save
+
+$ git commit -m "<description_of_change>" //brief summary of commit. creates a save of the programs
+
+$ git push origin <name_of_branch> //pushes changes to the web
+
+Now your changes are pushed and ready to check out :D
