@@ -42,6 +42,8 @@ There also exists a "react-native" file for any front end work we may be doing. 
 This section will be written soon. Python's builtin venv as well as requirements python-pip install will be used. Steps to use will be written out for linux. Windows? unsure. 
 
 The Django version we are using is 5.2.6
+The Nodejs version is 22.20.0
+The expo versoin is 54.0.11
 
 ## Build and Compile
 
