@@ -48,11 +48,23 @@ npm -v # Should print "10.9.3".
     * __In this case, I am using the expo-router template which gives enhanced app routing.__
     * See [this video](https://www.youtube.com/watch?v=Z20nUdAUGmM) for how it works.
 
-2. You'll get prompted a library install. Type 'y' for 'yes' to install the package.
+2. Install needed libraries.
+```
+
+
+
+```
+
+2. You'll get prompted some libraries install. Type 'y' for 'yes' to install the package.
+    * create-expo-app@3.5.3 -> yes
+    * typescript@~5.9.2 -> yes (even though we arent using typescript)
 ```
 Need to install the following packages:
 create-expo-app@3.5.3
 Ok to proceed? (y) y
+
+? It looks like you're trying to use TypeScript but don't have the required dependencies installed. Would you like to
+install typescript@~5.9.2? › (Y/n)
 ```
 
 3. Start expo dev server. 
@@ -76,3 +88,5 @@ How we created our expo app and ran a demo on our mobile device!
 npm install react-native-safe-area-context
 
 ```
+
+## Common Problems
