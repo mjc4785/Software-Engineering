@@ -1,3 +1,4 @@
+import { Ionicons } from '@expo/vector-icons'; // For the "X" icon
 import BottomSheet, { BottomSheetView } from '@gorhom/bottom-sheet';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
@@ -20,14 +21,13 @@ export default function App() {
   const snapPoints = useMemo(() => ['20%', '50%', '80%', '95%'], []);
   const [selectedPOI, setSelectedPOI] = useState(null);
 
-  // Automatically expand/retract bottom sheet when keyboard appears/disappears
+  // expand / retract sheet on keyboard open/close
   useEffect(() => {
     const showSub = Keyboard.addListener('keyboardDidShow', () => {
-      bottomSheetRef.current?.snapToIndex(3); // 95%
+      bottomSheetRef.current?.snapToIndex(3);
     });
-
     const hideSub = Keyboard.addListener('keyboardDidHide', () => {
-      bottomSheetRef.current?.snapToIndex(1); // 50%
+      bottomSheetRef.current?.snapToIndex(1);
     });
 
     return () => {
@@ -55,6 +55,14 @@ export default function App() {
     bottomSheetRef.current?.snapToIndex(1);
   };
 
+  const handleSeeInfo = () => {
+    console.log('See Building Info pressed');
+  };
+
+  const handleGoNow = () => {
+    console.log('Go Now pressed');
+  };
+
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <Host>
@@ -78,7 +86,7 @@ export default function App() {
             />
           </MapView>
 
-          {/* Floating button */}
+          {/* Floating Button */}
           <TouchableOpacity
             style={styles.button}
             onPress={selectedPOI ? handleClearPOI : handleAddDummyPOI}
@@ -93,7 +101,7 @@ export default function App() {
         <Portal>
           <BottomSheet
             ref={bottomSheetRef}
-            index={1} // start at mid height
+            index={1}
             snapPoints={snapPoints}
             enablePanDownToClose={false}
             handleIndicatorStyle={styles.handleIndicator}
@@ -106,12 +114,37 @@ export default function App() {
               <BottomSheetView style={styles.sheetContent}>
                 <Text style={styles.sheetTitle}>Building Info</Text>
 
-                {/* Conditionally render either search or POI info */}
                 {selectedPOI ? (
-                  <View style={styles.poiContainer}>
-                    <Text style={styles.poiLabel}>Selected POI:</Text>
-                    <Text style={styles.poiName}>{selectedPOI.name}</Text>
-                  </View>
+                  <>
+                    {/* X Close Button */}
+                    <TouchableOpacity style={styles.closeButton} onPress={handleClearPOI}>
+                      <Ionicons name="close" size={24} color="#333" />
+                    </TouchableOpacity>
+
+                    <View style={styles.poiContainer}>
+                      <Text style={styles.poiLabel}>Selected POI:</Text>
+                      <Text style={styles.poiName}>{selectedPOI.name}</Text>
+
+                      {/* Action buttons */}
+                      <View style={styles.actionButtonsContainer}>
+                        <TouchableOpacity
+                          style={[styles.actionButton, styles.infoButton]}
+                          onPress={handleSeeInfo}
+                        >
+                          <Text style={[styles.actionButtonText, styles.infoButtonText]}>
+                            See Building Info
+                          </Text>
+                        </TouchableOpacity>
+
+                        <TouchableOpacity
+                          style={[styles.actionButton, styles.goButton]}
+                          onPress={handleGoNow}
+                        >
+                          <Text style={styles.actionButtonText}>Go Now</Text>
+                        </TouchableOpacity>
+                      </View>
+                    </View>
+                  </>
                 ) : (
                   <TextInput
                     style={styles.searchInput}
@@ -145,6 +178,13 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     marginBottom: 12,
   },
+  closeButton: {
+    position: 'absolute',
+    top: 15,
+    right: 15,
+    zIndex: 1,
+    padding: 6,
+  },
   searchInput: {
     width: '100%',
     height: 40,
@@ -155,7 +195,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
   },
   poiContainer: {
-    marginTop: 10,
+    marginTop: 30,
     alignItems: 'center',
   },
   poiLabel: {
@@ -167,6 +207,33 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: '#222',
     marginTop: 4,
+    marginBottom: 20,
+  },
+  actionButtonsContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    width: '100%',
+  },
+  actionButton: {
+    paddingVertical: 12,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  infoButton: {
+    flex: 2,
+    backgroundColor: '#f1f097ff',
+    marginRight: 8,
+  },
+  goButton: {
+    flex: 1,
+    backgroundColor: '#bbaa12ff',
+  },
+  actionButtonText: {
+    color: '#fff',
+    fontWeight: '600',
+  },
+  infoButtonText: {
+    color: '#000',
   },
   button: {
     position: 'absolute',
