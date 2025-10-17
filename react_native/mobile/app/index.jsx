@@ -1,94 +1,118 @@
-import { useRef } from 'react';
-import { Dimensions, KeyboardAvoidingView, Platform, StatusBar, StyleSheet, Text, TextInput, View } from 'react-native';
+import BottomSheet, { BottomSheetView } from '@gorhom/bottom-sheet';
+import { useEffect, useMemo, useRef } from 'react';
+import {
+  Keyboard,
+  KeyboardAvoidingView,
+  Platform,
+  StatusBar,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from 'react-native';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import MapView, { UrlTile } from 'react-native-maps';
-import { Modalize } from 'react-native-modalize';
-
-const { height: screenHeight } = Dimensions.get('window');
+import { Host, Portal } from 'react-native-portalize';
 
 export default function App() {
-  const modalRef = useRef(null);
+  const bottomSheetRef = useRef(null);
+  const snapPoints = useMemo(() => ['20%', '50%', '80%', '95%'], []);
 
-  const handleFocus = () => {
-    // Expand the bottom sheet when search bar is focused
-    if (modalRef.current) {
-      modalRef.current.open();
-    }
-  };
+  useEffect(() => {
+    // expand when keyboard appears
+    const showSub = Keyboard.addListener('keyboardDidShow', () => {
+      bottomSheetRef.current?.snapToIndex(3); // 80%
+    });
+
+    // retract when keyboard hides
+    const hideSub = Keyboard.addListener('keyboardDidHide', () => {
+      bottomSheetRef.current?.snapToIndex(2); // 50%
+    });
+
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, []);
 
   return (
-    <View style={styles.container}>
-      {/* Status bar */}
-      <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent />
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <Host>
+        <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent />
 
-      {/* Map */}
-      <MapView
-        style={StyleSheet.absoluteFill}
-        initialRegion={{
-          latitude: 39.2548,
-          longitude: -76.7097,
-          latitudeDelta: 0.01,
-          longitudeDelta: 0.01,
-        }}
-      >
-        <UrlTile
-          urlTemplate="https://tile.openstreetmap.org/{z}/{x}/{y}.png"
-          maximumZ={19}
-        />
-      </MapView>
-
-      {/* Bottom Sheet */}
-      <Modalize
-        ref={modalRef}
-        alwaysOpen={150}                       // Small default height
-        modalHeight={screenHeight * 0.7}       // Taller than keyboard
-        withOverlay={false}                     // Background doesn't dim
-        handleStyle={{ height: 0 }}
-        adjustToContentHeight={false}
-        keyboardAvoidingBehavior="none"        // Prevent shrinking
-      >
-        <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-          style={{ flex: 1 }}
-        >
-          <View style={styles.sheetContent}>
-            {/* Small handle inside */}
-            <View style={styles.handleInside} />
-
-            {/* Title */}
-            <Text style={styles.sheetTitle}>Search for Buildings</Text>
-
-            {/* Search bar */}
-            <TextInput
-              style={styles.searchInput}
-              placeholder="Enter building name..."
-              placeholderTextColor="#888"
-              onFocus={handleFocus}   // Expand sheet on focus
+        {/* Map */}
+        <View style={styles.container}>
+          <MapView
+            style={StyleSheet.absoluteFill}
+            initialRegion={{
+              latitude: 39.2548,
+              longitude: -76.7097,
+              latitudeDelta: 0.01,
+              longitudeDelta: 0.01,
+            }}
+          >
+            <UrlTile
+              urlTemplate="https://tile.openstreetmap.org/{z}/{x}/{y}.png"
+              maximumZ={19}
             />
-          </View>
-        </KeyboardAvoidingView>
-      </Modalize>
-    </View>
+          </MapView>
+        </View>
+
+        {/* Bottom sheet */}
+        <Portal>
+          <BottomSheet
+            ref={bottomSheetRef}
+            index={1} // start at 50%
+            snapPoints={snapPoints}
+            enablePanDownToClose={false}
+            handleIndicatorStyle={styles.handleIndicator}
+            backgroundStyle={styles.bottomSheetBackground}
+          >
+            <KeyboardAvoidingView
+              behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+              style={{ flex: 1 }}
+            >
+              <BottomSheetView style={styles.sheetContent}>
+                <Text style={styles.sheetTitle}>Search for Buildings</Text>
+
+                <TextInput
+                  style={styles.searchInput}
+                  placeholder="Enter place on UMBC campus..."
+                  placeholderTextColor="#999"
+                />
+              </BottomSheetView>
+            </KeyboardAvoidingView>
+          </BottomSheet>
+        </Portal>
+      </Host>
+    </GestureHandlerRootView>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  sheetContent: {
-    padding: 20,
-    alignItems: 'center',
-    flex: 1,
+  bottomSheetBackground: {
+    backgroundColor: '#fff',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
   },
-  sheetTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    marginBottom: 10,
+  handleIndicator: { backgroundColor: '#ccc' },
+  sheetContent: {
+    flex: 1,
+    padding: 20,
   },
   handleInside: {
     width: 40,
     height: 5,
     borderRadius: 2.5,
     backgroundColor: '#ccc',
-    marginBottom: 15,
+    alignSelf: 'center',
+    marginBottom: 10,
+  },
+  sheetTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginBottom: 12,
   },
   searchInput: {
     width: '100%',
