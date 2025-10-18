@@ -77,7 +77,7 @@ install typescript@~5.9.2? › (Y/n)
     * To stop server ```ctrl + c```
 
 
-How we created our expo app and ran a demo on our mobile device!
+Now we created our expo app and ran a demo on our mobile device!
 
 
 

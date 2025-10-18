@@ -1,5 +1,8 @@
 # Learn more https://docs.github.com/en/get-started/getting-started-with-git/ignoring-files
 
+# The stock-generated readme, keep for reference purposes
+.README.md
+
 # dependencies
 node_modules/
 
