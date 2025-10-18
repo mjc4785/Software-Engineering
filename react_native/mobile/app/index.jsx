@@ -215,10 +215,9 @@ export default function App() {
 
                 {viewMode === 'search' && (
                   <>
-                    <Text style={styles.sheetTitle}>Building Info</Text>
                     <TextInput
                       style={styles.searchInput}
-                      placeholder="Search for a building..."
+                      placeholder="Where to?"
                       placeholderTextColor="#999"
                     />
                   </>
