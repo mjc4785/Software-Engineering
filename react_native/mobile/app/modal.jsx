@@ -1,4 +1,7 @@
-// app/modal.js
+/*
+modal.jsx
+Description: This file is dedicated to styling all pop-up alerts in the app.
+*/
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 

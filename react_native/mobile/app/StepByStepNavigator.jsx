@@ -1,3 +1,8 @@
+/*
+StepByStepNavigator.jsx
+Description: This page shows the step-by-step directions shown while a user follows a route.
+*/
+
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useState } from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
@@ -22,7 +27,7 @@ export default function NavigationScreen() {
             setCurrentStep(currentStep + 1);
         } else {
             router.push({
-                pathname: '/destination',
+                pathname: '/DestinationReached',
                 params: { name, time },
             });
         }

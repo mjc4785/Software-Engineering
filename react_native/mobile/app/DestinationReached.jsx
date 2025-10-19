@@ -1,3 +1,9 @@
+/*
+DestinationReached.jsx
+Description: This page is displayed when the user reaches their destination. 
+                It enables the user to exit back to index.jsx (the map).
+*/
+
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 

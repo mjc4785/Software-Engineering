@@ -1,6 +1,13 @@
-import BottomSheet, { BottomSheetView } from '@gorhom/bottom-sheet';
-import { useRouter } from 'expo-router';
-import { useEffect, useMemo, useRef, useState } from 'react';
+/*
+index.jsx
+Description: This is the default screen when the user opens the app, 
+              shows the map canvas and a search bar.
+*/
+
+// Imports
+import BottomSheet, { BottomSheetView } from '@gorhom/bottom-sheet'; // Bottom sheet/sliding panel UI library
+import { useRouter } from 'expo-router'; // Directory based routing
+import { useEffect, useMemo, useRef, useState } from 'react'; // React hooks
 import {
   FlatList,
   Keyboard,
@@ -12,57 +19,77 @@ import {
   TextInput,
   TouchableOpacity,
   View,
-} from 'react-native';
-import { GestureHandlerRootView } from 'react-native-gesture-handler';
-import MapView, { Polyline, UrlTile } from 'react-native-maps';
-import { Host, Portal } from 'react-native-portalize';
+} from 'react-native'; // Native UI libraries
 
+// Enables/is requirement for @gorhom/bottom-sheet.
+import { GestureHandlerRootView } from 'react-native-gesture-handler'; // Enables enhanced gesture swiping.
+
+import MapView, { Polyline, UrlTile } from 'react-native-maps'; // For tile overlay map components and drawing route lines
+import { Host, Portal } from 'react-native-portalize'; // Allows BottomSheet to sit on top of MapView
+
+// Main React component
 export default function App() {
+
+  // Make references to bottom sheet and map to... reference later
   const bottomSheetRef = useRef(null);
   const mapRef = useRef(null);
 
+  // Define snap points for bottom sheet
+  // useMemo (memoize) is used so the array isn't recalculated every render
   const snapPoints = useMemo(() => ['20%', '50%', '80%', '95%'], []);
-  const [selectedPOI, setSelectedPOI] = useState(null);
-  const [viewMode, setViewMode] = useState('search'); // "search", "poi", "directions"
-  const [dummyRoutes, setDummyRoutes] = useState([]); // lines on map
 
+  // Set some component states
+  const [selectedPOI, setSelectedPOI] = useState(null); // what POI is selected
+  const [viewMode, setViewMode] = useState('search'); // viewMode dictates what the bottom sheet shows.
+  const [dummyRoutes, setDummyRoutes] = useState([]); // Lines on map for dummy POI
+
+  // hook to navigate between screens
   const router = useRouter();
 
-  // ✅ UPDATED: Pass selectedPOI.name for the destination name
+  // Handles user pressing "GO" on a route
   const handleRouteGo = (route, skipSteps = false) => {
     if (!selectedPOI) return;
 
     const destinationName = selectedPOI.name; // Use the POI's name
 
+    // Option to go directly to destination reached page
+    // Passes destination name and route time with params
     if (skipSteps) {
       router.push({
-        pathname: '/destination',
+        pathname: '/DestinationReached',
         params: { name: destinationName, time: route.time },
       });
-    } else {
+    }
+    // Option to go to navigation page
+    else {
       router.push({
-        pathname: '/navigation',
+        pathname: '/StepByStepNavigator',
         params: { name: destinationName, time: route.time },
       });
     }
   };
 
 
-  // Keyboard snap behavior
+  // Keyboard snap behavior event listener
   useEffect(() => {
+    // If keyboard is on screen, snap bottom sheet higher
     const showSub = Keyboard.addListener('keyboardDidShow', () => {
       bottomSheetRef.current?.snapToIndex(3);
     });
+
+    // If keyboard is not on screen, snap bottom sheet back down
     const hideSub = Keyboard.addListener('keyboardDidHide', () => {
       bottomSheetRef.current?.snapToIndex(1);
     });
 
+    // Clean up/remove listeners when component is done
     return () => {
       showSub.remove();
       hideSub.remove();
     };
   }, []);
 
+  // When user clicks on POI on map, updates bottom sheet state and snaps bottom sheet higher
   const handlePoiClick = (e) => {
     const { name, coordinate } = e.nativeEvent;
     setSelectedPOI({ name, coordinate });
@@ -70,15 +97,17 @@ export default function App() {
     bottomSheetRef.current?.snapToIndex(1);
   };
 
+  // Same behavior as above but for a dummy POI
   const handleAddDummyPOI = () => {
     setSelectedPOI({
-      name: 'Engineering Hall',
+      name: 'Engineering Building',
       coordinate: { latitude: 39.255, longitude: -76.709 },
     });
     setViewMode('poi');
     bottomSheetRef.current?.snapToIndex(1);
   };
 
+  // Handles when X is pressed on poi view of bottom sheet. Reverts bottom sheet back to search mode.
   const handleClearPOI = () => {
     setSelectedPOI(null);
     setViewMode('search');
@@ -86,10 +115,13 @@ export default function App() {
     bottomSheetRef.current?.snapToIndex(1);
   };
 
+  // Prints when the "see building info" button on the bottom sheet search mode is pressed.
   const handleSeeInfo = () => {
     console.log('See Building Info pressed');
   };
 
+  // On poi view, handles when "go now" button is clicked. Brings up dummy routes 
+  // and a view of a dummy route rendered on the map
   const handleGoNow = () => {
     setViewMode('directions');
     bottomSheetRef.current?.snapToIndex(2);
@@ -124,13 +156,6 @@ export default function App() {
     }
   };
 
-  // ✅ This function is no longer needed since handleRouteGo handles the logic
-  // const handleStartNavigation = (route) => {
-  //   router.push({
-  //     pathname: '/navigation',
-  //     params: { name: route.name, time: route.time },
-  //   });
-  // };
 
   const routes = [
     { id: '1', name: 'Route 1', time: '7 min', distance: '0.5 miles' },
@@ -138,6 +163,7 @@ export default function App() {
     { id: '3', name: 'Route 3', time: '6 min', distance: '0.45 miles' },
   ];
 
+  // The UI of a react-native app is wrapped in a return statement
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <Host>
@@ -148,14 +174,17 @@ export default function App() {
           <MapView
             ref={mapRef}
             style={StyleSheet.absoluteFill}
-            initialRegion={{
+            initialRegion={{ // Set to UMBC's campus
               latitude: 39.2548,
               longitude: -76.7097,
               latitudeDelta: 0.01,
               longitudeDelta: 0.01,
             }}
+            // Handle when a POI on the map is clicked
             onPoiClick={handlePoiClick}
           >
+
+            {/* Tile overlay using OSM's tile style */}
             <UrlTile
               urlTemplate="https://tile.openstreetmap.org/{z}/{x}/{y}.png"
               maximumZ={19}
@@ -182,7 +211,7 @@ export default function App() {
             </Text>
           </TouchableOpacity>
 
-          {/* Menu Button (top-left) */}
+          {/* Menu Floating Button (top-left) */}
           <TouchableOpacity style={styles.menuButton}>
             <View style={styles.menuLine} />
             <View style={styles.menuLine} />
@@ -194,17 +223,19 @@ export default function App() {
         <Portal>
           <BottomSheet
             ref={bottomSheetRef}
-            index={1}
+            index={1} // starting snap index
             snapPoints={snapPoints}
             enablePanDownToClose={false}
             handleIndicatorStyle={styles.handleIndicator}
             backgroundStyle={styles.bottomSheetBackground}
           >
+            {/* Keyboard safe bottom sheet */}
             <KeyboardAvoidingView
               behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
               style={{ flex: 1 }}
             >
               <BottomSheetView style={styles.sheetContent}>
+                {/* Close/X button appears in poi and directions view (but not search view) */}
                 {(viewMode === 'poi' || viewMode === 'directions') && (
                   <TouchableOpacity style={styles.closeButton} onPress={handleClearPOI}>
                     <View style={styles.closeCircle}>
@@ -213,6 +244,7 @@ export default function App() {
                   </TouchableOpacity>
                 )}
 
+                {/* Search input appears only in search mode */}
                 {viewMode === 'search' && (
                   <>
                     <TextInput
@@ -223,6 +255,7 @@ export default function App() {
                   </>
                 )}
 
+                {/* Shows the POI info + buttons */}
                 {viewMode === 'poi' && selectedPOI && (
                   <>
                     <Text style={styles.sheetTitle}>Building Info</Text>
@@ -231,6 +264,7 @@ export default function App() {
                       <Text style={styles.poiName}>{selectedPOI.name}</Text>
 
                       <View style={styles.actionButtonsContainer}>
+                        {/* See building info button */}
                         <TouchableOpacity
                           style={[styles.actionButton, styles.infoButton]}
                           onPress={handleSeeInfo}
@@ -239,7 +273,7 @@ export default function App() {
                             See Building Info
                           </Text>
                         </TouchableOpacity>
-
+                        {/* Go now button */}
                         <TouchableOpacity
                           style={[styles.actionButton, styles.goButton]}
                           onPress={handleGoNow}
@@ -251,6 +285,7 @@ export default function App() {
                   </>
                 )}
 
+                {/* Directions view- shows routes to selected POI */}
                 {viewMode === 'directions' && selectedPOI && (
                   <>
                     <Text style={styles.sheetTitle}>Directions</Text>
@@ -259,6 +294,7 @@ export default function App() {
                       <Text style={styles.directionText}>To: {selectedPOI.name}</Text>
                     </View>
 
+                    {/* List of routes  */}
                     <FlatList
                       data={routes}
                       keyExtractor={(item) => item.id}
@@ -292,6 +328,7 @@ export default function App() {
   );
 }
 
+// Styling for the page
 const styles = StyleSheet.create({
   container: { flex: 1 },
   bottomSheetBackground: {
