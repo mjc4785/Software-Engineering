@@ -24,8 +24,11 @@ import {
 // Enables/is requirement for @gorhom/bottom-sheet.
 import { GestureHandlerRootView } from 'react-native-gesture-handler'; // Enables enhanced gesture swiping.
 
-import MapView, { Polyline, UrlTile } from 'react-native-maps'; // For tile overlay map components and drawing route lines
+import MapView, { Polyline, UrlTile } from 'react-native-maps'; // For tile overlay, map components, current location dot, and drawing route lines
 import { Host, Portal } from 'react-native-portalize'; // Allows BottomSheet to sit on top of MapView
+
+// Imports
+import * as Location from 'expo-location'; // For location tracking
 
 // Main React component
 export default function App() {
@@ -42,9 +45,43 @@ export default function App() {
   const [selectedPOI, setSelectedPOI] = useState(null); // what POI is selected
   const [viewMode, setViewMode] = useState('search'); // viewMode dictates what the bottom sheet shows.
   const [dummyRoutes, setDummyRoutes] = useState([]); // Lines on map for dummy POI
+  const [currentLocation, setCurrentLocation] = useState(null);     // State for tracking user's current location
+
 
   // hook to navigate between screens
   const router = useRouter();
+
+  // Get and center map on current location
+  const handleLocateMe = async () => {
+    try {
+      // Ask for location permissions
+      let { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== 'granted') {
+        console.log('Permission to access location was denied');
+        return;
+      }
+
+      // Get current position
+      let location = await Location.getCurrentPositionAsync({});
+      const { latitude, longitude } = location.coords;
+
+      // Update state
+      setCurrentLocation({ latitude, longitude });
+
+      // Animate map to the user's current location
+      if (mapRef.current) {
+        mapRef.current.animateToRegion({
+          latitude,
+          longitude,
+          latitudeDelta: 0.005,
+          longitudeDelta: 0.005,
+        });
+      }
+    } catch (error) {
+      console.error('Error getting location:', error);
+    }
+  };
+
 
   // Handles user pressing "GO" on a route
   const handleRouteGo = (route, skipSteps = false) => {
@@ -74,12 +111,12 @@ export default function App() {
   useEffect(() => {
     // If keyboard is on screen, snap bottom sheet higher
     const showSub = Keyboard.addListener('keyboardDidShow', () => {
-      bottomSheetRef.current?.snapToIndex(3);
+      bottomSheetRef.current?.snapToIndex(3); // Snaps higher
     });
 
     // If keyboard is not on screen, snap bottom sheet back down
     const hideSub = Keyboard.addListener('keyboardDidHide', () => {
-      bottomSheetRef.current?.snapToIndex(1);
+      bottomSheetRef.current?.snapToIndex(1); // Snap lower
     });
 
     // Clean up/remove listeners when component is done
@@ -182,6 +219,9 @@ export default function App() {
             }}
             // Handle when a POI on the map is clicked
             onPoiClick={handlePoiClick}
+            showsUserLocation={true} // Enables user current location blue dot
+            followsUserLocation={true} // Blue dot updates while user moves
+
           >
 
             {/* Tile overlay using OSM's tile style */}
@@ -189,6 +229,10 @@ export default function App() {
               urlTemplate="https://tile.openstreetmap.org/{z}/{x}/{y}.png"
               maximumZ={19}
             />
+
+
+
+
             {/* Draw dummy routes if in directions mode */}
             {viewMode === 'directions' &&
               dummyRoutes.map((routeCoords, idx) => (
@@ -200,6 +244,13 @@ export default function App() {
                 />
               ))}
           </MapView>
+          {/* Blue button for current location tracking */}
+          <TouchableOpacity
+            style={styles.locateButton}
+            onPress={handleLocateMe}
+          >
+            <Text style={styles.locateButtonText}>My Location</Text>
+          </TouchableOpacity>
 
           {/* Add Dummy POI / Clear Button */}
           <TouchableOpacity
@@ -425,4 +476,20 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   routeGoButtonText: { color: '#fff', fontWeight: '600' },
+  // ✅ Styling for current location button
+  locateButton: {
+    position: 'absolute',
+    bottom: 80,
+    right: 20,
+    backgroundColor: '#007AFF',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 50,
+    elevation: 4,
+  },
+  locateButtonText: {
+    color: '#fff',
+    fontWeight: '600',
+  },
+
 });
