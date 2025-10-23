@@ -67,6 +67,15 @@ export default function App() {
           latitude: coords.latitude,    // User's current latitude
           longitude: coords.longitude,  // User's current longitude
           timestamp: new Date().toISOString(), // Current time in ISO format
+
+          /* 
+          Example of what the backend receives in the request body:
+          {
+            "latitude": 39.2548,
+            "longitude": -76.7097,
+            "timestamp": "2025-10-23T16:42:11.123Z"
+          }
+          */
         }),
       });
 
@@ -193,7 +202,7 @@ export default function App() {
     setViewMode('directions');
     bottomSheetRef.current?.snapToIndex(2);
 
-    // 💫 Get and send user’s current location to backend when "Go Now" is pressed
+    //  Get and send user’s current location to backend when "Go Now" is pressed
     try {
       let { status } = await Location.requestForegroundPermissionsAsync();
       if (status !== 'granted') {
@@ -201,16 +210,16 @@ export default function App() {
         return;
       }
 
-      // 💫 Get current position
+      //  Get current position
       let location = await Location.getCurrentPositionAsync({});
       const { latitude, longitude } = location.coords;
       setCurrentLocation({ latitude, longitude });
 
-      // 💫 Send location to backend
+      // Send location to backend
       await sendLocationToBackend({ latitude, longitude });
 
     } catch (error) {
-      console.error('❌ Error sending location on Go Now:', error);
+      console.error(' Error sending location on Go Now:', error);
     }
 
     // add dummy map routes
@@ -526,7 +535,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   routeGoButtonText: { color: '#fff', fontWeight: '600' },
-  // ✅ Styling for current location button
+  // Styling for current location button
   locateButton: {
     position: 'absolute',
     bottom: 80,
