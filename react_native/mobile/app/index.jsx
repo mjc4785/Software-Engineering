@@ -46,10 +46,43 @@ export default function App() {
   const [viewMode, setViewMode] = useState('search'); // viewMode dictates what the bottom sheet shows.
   const [dummyRoutes, setDummyRoutes] = useState([]); // Lines on map for dummy POI
   const [currentLocation, setCurrentLocation] = useState(null);     // State for tracking user's current location
+  const [location, setLocation] = useState(null); // Start location (not necessarily the user's current location but can be)
 
 
   // hook to navigate between screens
   const router = useRouter();
+
+
+  // Function to send the user's current GPS coordinates to the backend server
+  const sendLocationToBackend = async (coords) => {
+    try {
+      // Send a POST request to the backend API endpoint
+      const response = await fetch('https://your-backend-url.com/api/update-location', {
+        method: 'POST', // HTTP method for sending data
+        headers: {
+          'Content-Type': 'application/json', // Tell the server the data format is JSON
+        },
+        body: JSON.stringify({
+          // Convert the coordinates and timestamp into a JSON string
+          latitude: coords.latitude,    // User's current latitude
+          longitude: coords.longitude,  // User's current longitude
+          timestamp: new Date().toISOString(), // Current time in ISO format
+        }),
+      });
+
+      // If the server response is not OK (status not in 200–299), throw an error
+      if (!response.ok) {
+        throw new Error('Failed to send location');
+      }
+
+      // Log success message with the coordinates
+      console.log(`Location (${coords.latitude}, ${coords.longitude}) sent successfully to backend at approx. ${new Date().toISOString()}`);
+
+    } catch (error) {
+      // Handle and log any errors that occur during the fetch or response handling
+      console.error('Error sending location:', error);
+    }
+  };
 
   // Get and center map on current location
   const handleLocateMe = async () => {
@@ -89,16 +122,12 @@ export default function App() {
 
     const destinationName = selectedPOI.name; // Use the POI's name
 
-    // Option to go directly to destination reached page
-    // Passes destination name and route time with params
     if (skipSteps) {
       router.push({
         pathname: '/DestinationReached',
         params: { name: destinationName, time: route.time },
       });
-    }
-    // Option to go to navigation page
-    else {
+    } else {
       router.push({
         pathname: '/StepByStepNavigator',
         params: { name: destinationName, time: route.time },
@@ -125,6 +154,7 @@ export default function App() {
       hideSub.remove();
     };
   }, []);
+
 
   // When user clicks on POI on map, updates bottom sheet state and snaps bottom sheet higher
   const handlePoiClick = (e) => {
@@ -159,9 +189,29 @@ export default function App() {
 
   // On poi view, handles when "go now" button is clicked. Brings up dummy routes 
   // and a view of a dummy route rendered on the map
-  const handleGoNow = () => {
+  const handleGoNow = async () => {
     setViewMode('directions');
     bottomSheetRef.current?.snapToIndex(2);
+
+    // 💫 Get and send user’s current location to backend when "Go Now" is pressed
+    try {
+      let { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Permission denied', 'Location permission is required to send data.');
+        return;
+      }
+
+      // 💫 Get current position
+      let location = await Location.getCurrentPositionAsync({});
+      const { latitude, longitude } = location.coords;
+      setCurrentLocation({ latitude, longitude });
+
+      // 💫 Send location to backend
+      await sendLocationToBackend({ latitude, longitude });
+
+    } catch (error) {
+      console.error('❌ Error sending location on Go Now:', error);
+    }
 
     // add dummy map routes
     const routes = [
@@ -220,7 +270,7 @@ export default function App() {
             // Handle when a POI on the map is clicked
             onPoiClick={handlePoiClick}
             showsUserLocation={true} // Enables user current location blue dot
-            followsUserLocation={true} // Blue dot updates while user moves
+          // followsUserLocation={true} // Blue dot updates while user moves => This constantly centers user location though
 
           >
 
