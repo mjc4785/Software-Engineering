@@ -24,8 +24,11 @@ import {
 // Enables/is requirement for @gorhom/bottom-sheet.
 import { GestureHandlerRootView } from 'react-native-gesture-handler'; // Enables enhanced gesture swiping.
 
-import MapView, { Polyline, UrlTile } from 'react-native-maps'; // For tile overlay map components and drawing route lines
+import MapView, { Polyline, UrlTile, Marker } from 'react-native-maps'; // For tile overlay map components and drawing route lines
 import { Host, Portal } from 'react-native-portalize'; // Allows BottomSheet to sit on top of MapView
+
+// Routing API key 
+const ORS_API_KEY = "eyJvcmciOiI1YjNjZTM1OTc4NTExMTAwMDFjZjYyNDgiLCJpZCI6IjJmM2NiNzU0ZjQ4NTQxYmJiODNmMTE0OTU4ZTdlODY0IiwiaCI6Im11cm11cjY0In0=";
 
 // Main React component
 export default function App() {
@@ -42,9 +45,29 @@ export default function App() {
   const [selectedPOI, setSelectedPOI] = useState(null); // what POI is selected
   const [viewMode, setViewMode] = useState('search'); // viewMode dictates what the bottom sheet shows.
   const [dummyRoutes, setDummyRoutes] = useState([]); // Lines on map for dummy POI
+  const [inputText, setInputText] = useState("")
+  const [searchResults, setSearchResults] = useState([])
 
   // hook to navigate between screens
   const router = useRouter();
+
+  // Fetch matching locations from OpenStreetMap (Nominatim)
+  const searchPlaces = async (query) => {
+    if (!query) {
+      setSearchResults([]);
+      return;
+    }
+  
+    try {
+      const response = await fetch(
+        `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}`
+      );
+      const data = await response.json();
+      setSearchResults(data);
+    } catch (error) {
+      console.error("Error fetching search results:", error);
+    }
+  };
 
   // Handles user pressing "GO" on a route
   const handleRouteGo = (route, skipSteps = false) => {
@@ -156,12 +179,14 @@ export default function App() {
     }
   };
 
+  // const fetchRoutes()
 
   const routes = [
     { id: '1', name: 'Route 1', time: '7 min', distance: '0.5 miles' },
     { id: '2', name: 'Route 2', time: '8 min', distance: '0.55 miles' },
     { id: '3', name: 'Route 3', time: '6 min', distance: '0.45 miles' },
   ];
+
 
   // The UI of a react-native app is wrapped in a return statement
   return (
@@ -244,18 +269,51 @@ export default function App() {
                   </TouchableOpacity>
                 )}
 
-                {/* Search input appears only in search mode */}
-                {viewMode === 'search' && (
-                  <>
-                    <TextInput
-                      style={styles.searchInput}
-                      placeholder="Where to?"
-                      placeholderTextColor="#999"
-                    />
-                  </>
-                )}
-
-                {/* Shows the POI info + buttons */}
+		{/* Search input appears only in search mode */}
+		{viewMode === 'search' && (
+		  <>
+		    <TextInput
+		      style={styles.searchInput}
+		      onChangeText={(text) => {
+		        setInputText(text);
+		        searchPlaces(text); // Trigger search as user types
+		      }}
+		      value={inputText}
+		      placeholder="Where would you like to go?"
+		      placeholderTextColor="#999"
+		    />
+		    <Text>Current input: {inputText}</Text>
+		
+		    <FlatList
+		      data={searchResults}
+		      keyExtractor={(item) => item.place_id.toString()}
+		      renderItem={({ item }) => (
+		        <TouchableOpacity
+		          style={{
+		            paddingVertical: 10,
+		            borderBottomWidth: 1,
+		            borderBottomColor: "#eee",
+		          }}
+		          onPress={() => {
+		            const coordinate = {
+		              latitude: parseFloat(item.lat),
+		              longitude: parseFloat(item.lon),
+		            };
+		            setSelectedPOI({ name: item.display_name, coordinate });
+		            setViewMode("poi");
+		            bottomSheetRef.current?.snapToIndex(1);
+		            setSearchResults([]);
+		            setInputText("");
+		          }}
+		        >
+		          <Text style={{ fontSize: 14 }}>{item.display_name}</Text>
+		        </TouchableOpacity>
+		      )}
+		    />
+		  </>
+		)}
+                
+		{/* Shows the POI info + buttons */}
                 {viewMode === 'poi' && selectedPOI && (
                   <>
                     <Text style={styles.sheetTitle}>Building Info</Text>
