@@ -19,6 +19,42 @@ The idea for this project comes from Emily (insert last name when we know), Her 
 If there is anything unfinished or bugs to report in existing code, please reach out.
 
 ## Format
+
+CURRENT FORMAT
+.
+├── gitsteps.txt
+├── react_native
+│   ├── html
+│   │   ├── first.html
+│   │   └── two.html
+│   ├── mobile
+│   │   ├── app
+│   │   ├── app.json
+│   │   ├── assets
+│   │   ├── components
+│   │   ├── constants
+│   │   ├── eslint.config.js
+│   │   ├── expo-env.d.ts
+│   │   ├── hooks
+│   │   ├── node_modules
+│   │   ├── package.json
+│   │   ├── package-lock.json
+│   │   ├── README.md
+│   │   ├── scripts
+│   │   └── tsconfig.json
+│   ├── mobile_README.md
+│   └── start.txt
+├── README.md
+└── UMBCNavigator
+    ├── manage.py
+    └── UMBCNavigator
+        ├── asgi.py
+        ├── __init__.py
+        ├── settings.py
+        ├── urls.py
+        └── wsgi.py
+
+
 For this project, we want to have a react-native frontend, django backend, ad firebase DB for storage. for resources for Django, look [here](https://docs.djangoproject.com/en/5.2/) 
 
 The formatting for the repository is simple. In the UMBCNavigator folder is the manage.py file and another UMBCNavigator folder. 
