@@ -64,7 +64,10 @@ export default function App() {
       );
       const data = await response.json();
       setSearchResults(data);
-      // console.log(response)
+      // console.log(data[0].lat)
+      const firstInd = data[0];
+      const lat = parseFloat(firstInd.lat);
+      const lon = parseFloat(firstInd.lon);
     } catch (error) {
       console.error("Error fetching search results:", error);
     }
