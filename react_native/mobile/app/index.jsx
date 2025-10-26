@@ -64,6 +64,7 @@ export default function App() {
       );
       const data = await response.json();
       setSearchResults(data);
+      // console.log(response)
     } catch (error) {
       console.error("Error fetching search results:", error);
     }
