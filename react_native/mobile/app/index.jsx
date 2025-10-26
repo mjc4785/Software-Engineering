@@ -117,6 +117,45 @@ export default function App() {
     }
   };
 
+  // Function to send the user's current GPS coordinates to the backend server
+  const sendLocationToBackend = async (coords) => {
+    try {
+      // Send a POST request to the backend API endpoint
+      const response = await fetch('https://your-backend-url.com/api/update-location', {
+        method: 'POST', // HTTP method for sending data
+        headers: {
+          'Content-Type': 'application/json', // Tell the server the data format is JSON
+        },
+        body: JSON.stringify({
+          // Convert the coordinates and timestamp into a JSON string
+          latitude: coords.latitude,    // User's current latitude
+          longitude: coords.longitude,  // User's current longitude
+          timestamp: new Date().toISOString(), // Current time in ISO format
+
+          /* 
+          Example of what the backend receives in the request body:
+          {
+            "latitude": 39.2548,
+            "longitude": -76.7097,
+            "timestamp": "2025-10-23T16:42:11.123Z"
+          }
+          */
+        }),
+      });
+
+      // If the server response is not OK (status not in 200–299), throw an error
+      if (!response.ok) {
+        throw new Error('Failed to send location');
+      }
+
+      // Log success message with the coordinates
+      console.log(`Location (${coords.latitude}, ${coords.longitude}) sent successfully to backend at approx. ${new Date().toISOString()}`);
+
+    } catch (error) {
+      // Handle and log any errors that occur during the fetch or response handling
+      console.error('Error sending location:', error);
+    }
+  };
 
   // Handles user pressing "GO" on a route
   const handleRouteGo = (route, skipSteps = false) => {
@@ -256,8 +295,8 @@ export default function App() {
             }}
             // Handle when a POI on the map is clicked
             onPoiClick={handlePoiClick}
-            showUserLocation={true}
-            followUserLocation={true}
+            showsUserLocation={true}
+          // followsUserLocation={true} // This makes it so the user location is always focused- don't want this
           >
 
             {/* Tile overlay using OSM's tile style */}
@@ -286,6 +325,14 @@ export default function App() {
               {selectedPOI ? 'Clear POI' : 'Add Dummy POI'}
             </Text>
           </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.button, { bottom: 200, backgroundColor: '#34C759' }]}
+            onPress={handleLocateMe}
+          >
+            <Text style={styles.buttonText}>Locate Me</Text>
+          </TouchableOpacity>
+
 
           {/* Menu Floating Button (top-left) */}
           <TouchableOpacity style={styles.menuButton}>
@@ -534,4 +581,22 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   routeGoButtonText: { color: '#fff', fontWeight: '600' },
+  locateButton: {
+    position: 'absolute',
+    bottom: 80,
+    right: 20,
+    backgroundColor: '#007AFF',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 50,
+    elevation: 4,
+
+  },
+  locateButtonText: {
+    color: '#fff',
+    fontWeight: '600',
+
+  },
+
+
 });
