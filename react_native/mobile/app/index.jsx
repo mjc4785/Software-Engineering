@@ -24,7 +24,7 @@ import {
 // Enables/is requirement for @gorhom/bottom-sheet.
 import { GestureHandlerRootView } from 'react-native-gesture-handler'; // Enables enhanced gesture swiping.
 
-import MapView, { Polyline, UrlTile, Marker } from 'react-native-maps'; // For tile overlay map components and drawing route lines
+import MapView, { Polyline, UrlTile } from 'react-native-maps'; // For tile overlay map components and drawing route lines
 import { Host, Portal } from 'react-native-portalize'; // Allows BottomSheet to sit on top of MapView
 
 import * as Location from 'expo-location';
@@ -50,8 +50,8 @@ export default function App() {
   const [dummyRoutes, setDummyRoutes] = useState([]); // Lines on map for dummy POI
   const [inputText, setInputText] = useState("")
   const [searchResults, setSearchResults] = useState([])
- const [currentLocation, setCurrentLocation] = useState(null);     // State for tracking user's current location
- const [location, setLocation] = useState(null); // Start location (not necessarily the user's current location but can be)
+  const [currentLocation, setCurrentLocation] = useState(null);     // State for tracking user's current location
+  const [location, setLocation] = useState(null); // Start location (not necessarily the user's current location but can be)
 
 
 
@@ -95,21 +95,28 @@ export default function App() {
       setSearchResults([]);
       return;
     }
-  
+
     try {
       const response = await fetch(
-        `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}`
+        `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&viewbox=-76.7205,39.2619,-76.70003,39.2419&bounded=1`
       );
       const data = await response.json();
       setSearchResults(data);
-      console.log(data[0].lat)
-      const firstInd = data[0];
-      const lat = parseFloat(firstInd.lat);
-      const lon = parseFloat(firstInd.lon);
+
+      // Check if the data exists first
+      if (data.length > 0) {
+        const firstInd = data[0];
+        const lat = parseFloat(firstInd.lat);
+        const lon = parseFloat(firstInd.lon);
+        console.log("First result:", lat, lon);
+      } else {
+        console.warn("No search results found.");
+      }
     } catch (error) {
       console.error("Error fetching search results:", error);
     }
   };
+
 
   // Handles user pressing "GO" on a route
   const handleRouteGo = (route, skipSteps = false) => {
@@ -249,8 +256,8 @@ export default function App() {
             }}
             // Handle when a POI on the map is clicked
             onPoiClick={handlePoiClick}
-	    showUserLocation={true}
-	    followUserLocation={true}
+            showUserLocation={true}
+            followUserLocation={true}
           >
 
             {/* Tile overlay using OSM's tile style */}
@@ -313,51 +320,51 @@ export default function App() {
                   </TouchableOpacity>
                 )}
 
-		{/* Search input appears only in search mode */}
-		{viewMode === 'search' && (
-		  <>
-		    <TextInput
-		      style={styles.searchInput}
-		      onChangeText={(text) => {
-		        setInputText(text);
-		        searchPlaces(text); // Trigger search as user types
-		      }}
-		      value={inputText}
-		      placeholder="Where would you like to go?"
-		      placeholderTextColor="#999"
-		    />
-		    <Text>Current input: {inputText}</Text>
-		
-		    <FlatList
-		      data={searchResults}
-		      keyExtractor={(item) => item.place_id.toString()}
-		      renderItem={({ item }) => (
-		        <TouchableOpacity
-		          style={{
-		            paddingVertical: 10,
-		            borderBottomWidth: 1,
-		            borderBottomColor: "#eee",
-		          }}
-		          onPress={() => {
-		            const coordinate = {
-		              latitude: parseFloat(item.lat),
-		              longitude: parseFloat(item.lon),
-		            };
-		            setSelectedPOI({ name: item.display_name, coordinate });
-		            setViewMode("poi");
-		            bottomSheetRef.current?.snapToIndex(1);
-		            setSearchResults([]);
-		            setInputText("");
-		          }}
-		        >
-		          <Text style={{ fontSize: 14 }}>{item.display_name}</Text>
-		        </TouchableOpacity>
-		      )}
-		    />
-		  </>
-		)}
-                
-		{/* Shows the POI info + buttons */}
+                {/* Search input appears only in search mode */}
+                {viewMode === 'search' && (
+                  <>
+                    <TextInput
+                      style={styles.searchInput}
+                      onChangeText={(text) => {
+                        setInputText(text);
+                        searchPlaces(text); // Trigger search as user types
+                      }}
+                      value={inputText}
+                      placeholder="Where would you like to go?"
+                      placeholderTextColor="#999"
+                    />
+                    <Text>Current input: {inputText}</Text>
+
+                    <FlatList
+                      data={searchResults}
+                      keyExtractor={(item) => item.place_id.toString()}
+                      renderItem={({ item }) => (
+                        <TouchableOpacity
+                          style={{
+                            paddingVertical: 10,
+                            borderBottomWidth: 1,
+                            borderBottomColor: "#eee",
+                          }}
+                          onPress={() => {
+                            const coordinate = {
+                              latitude: parseFloat(item.lat),
+                              longitude: parseFloat(item.lon),
+                            };
+                            setSelectedPOI({ name: item.display_name, coordinate });
+                            setViewMode("poi");
+                            bottomSheetRef.current?.snapToIndex(1);
+                            setSearchResults([]);
+                            setInputText("");
+                          }}
+                        >
+                          <Text style={{ fontSize: 14 }}>{item.display_name}</Text>
+                        </TouchableOpacity>
+                      )}
+                    />
+                  </>
+                )}
+
+                {/* Shows the POI info + buttons */}
                 {viewMode === 'poi' && selectedPOI && (
                   <>
                     <Text style={styles.sheetTitle}>Building Info</Text>
