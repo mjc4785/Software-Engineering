@@ -27,6 +27,9 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler'; // Enable
 import MapView, { Polyline, UrlTile, Marker } from 'react-native-maps'; // For tile overlay map components and drawing route lines
 import { Host, Portal } from 'react-native-portalize'; // Allows BottomSheet to sit on top of MapView
 
+import * as Location from 'expo-location';
+
+
 // Routing API key 
 const ORS_API_KEY = "eyJvcmciOiI1YjNjZTM1OTc4NTExMTAwMDFjZjYyNDgiLCJpZCI6IjJmM2NiNzU0ZjQ4NTQxYmJiODNmMTE0OTU4ZTdlODY0IiwiaCI6Im11cm11cjY0In0=";
 
@@ -47,9 +50,44 @@ export default function App() {
   const [dummyRoutes, setDummyRoutes] = useState([]); // Lines on map for dummy POI
   const [inputText, setInputText] = useState("")
   const [searchResults, setSearchResults] = useState([])
+ const [currentLocation, setCurrentLocation] = useState(null);     // State for tracking user's current location
+ const [location, setLocation] = useState(null); // Start location (not necessarily the user's current location but can be)
+
+
 
   // hook to navigate between screens
   const router = useRouter();
+
+  // Get and center map on current location
+  const handleLocateMe = async () => {
+    try {
+      // Ask for location permissions
+      let { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== 'granted') {
+        console.log('Permission to access location was denied');
+        return;
+      }
+
+      // Get current position
+      let location = await Location.getCurrentPositionAsync({});
+      const { latitude, longitude } = location.coords;
+
+      // Update state
+      setCurrentLocation({ latitude, longitude });
+
+      // Animate map to the user's current location
+      if (mapRef.current) {
+        mapRef.current.animateToRegion({
+          latitude,
+          longitude,
+          latitudeDelta: 0.005,
+          longitudeDelta: 0.005,
+        });
+      }
+    } catch (error) {
+      console.error('Error getting location:', error);
+    }
+  };
 
   // Fetch matching locations from OpenStreetMap (Nominatim)
   const searchPlaces = async (query) => {
@@ -64,7 +102,7 @@ export default function App() {
       );
       const data = await response.json();
       setSearchResults(data);
-      // console.log(data[0].lat)
+      console.log(data[0].lat)
       const firstInd = data[0];
       const lat = parseFloat(firstInd.lat);
       const lon = parseFloat(firstInd.lon);
@@ -211,6 +249,8 @@ export default function App() {
             }}
             // Handle when a POI on the map is clicked
             onPoiClick={handlePoiClick}
+	    showUserLocation={true}
+	    followUserLocation={true}
           >
 
             {/* Tile overlay using OSM's tile style */}
