@@ -90,6 +90,74 @@ export default function App() {
     }
   };
 
+	//
+	// MOST RECENT ADDITION 10/27/25
+	//
+
+  // Call OpenRouteService Directions API to get route from current location to selected destination
+  const getRouteFromHeigit = async (start, end) => {
+    try {
+      const response = await fetch("https://api.openrouteservice.org/v2/directions/foot-walking", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: ORS_API_KEY,
+        },
+        body: JSON.stringify({
+          coordinates: [
+            [start.longitude, start.latitude],
+            [end.longitude, end.latitude],
+          ],
+        }),
+      });
+  
+      const data = await response.json();
+      console.log("Routing response:", data);
+  
+      if (data?.routes?.[0]?.geometry) {
+        return data.routes[0].geometry; // encoded polyline
+      } else {
+        console.warn("No geometry returned from routing API");
+        return null;
+      }
+    } catch (error) {
+      console.error("Error fetching route:", error);
+      return null;
+    }
+  };
+
+  // Helper to decode encoded polyline into an array of lat/lon pairs
+  function decodePolyline(encoded) {
+    let points = [];
+    let index = 0, lat = 0, lng = 0;
+  
+    while (index < encoded.length) {
+      let b, shift = 0, result = 0;
+      do {
+        b = encoded.charCodeAt(index++) - 63;
+        result |= (b & 0x1f) << shift;
+        shift += 5;
+      } while (b >= 0x20);
+      let dlat = result & 1 ? ~(result >> 1) : result >> 1;
+      lat += dlat;
+  
+      shift = 0;
+      result = 0;
+      do {
+        b = encoded.charCodeAt(index++) - 63;
+        result |= (b & 0x1f) << shift;
+        shift += 5;
+      } while (b >= 0x20);
+      let dlng = result & 1 ? ~(result >> 1) : result >> 1;
+      lng += dlng;
+  
+      points.push({ latitude: lat / 1e5, longitude: lng / 1e5 });
+    }
+  
+    return points;
+  }
+	//END OF MOST RECENT
+
   // Fetch matching locations from OpenStreetMap (Nominatim)
   const searchPlaces = async (query) => {
     if (!query) {
@@ -276,6 +344,34 @@ export default function App() {
     { id: '3', name: 'Route 3', time: '6 min', distance: '0.45 miles' },
   ];
 
+// MOST REC 
+
+  useEffect(() => {
+    const fetchRoute = async () => {
+      if (currentLocation && selectedPOI?.coordinate) {
+        console.log("Fetching route from:", currentLocation, "to:", selectedPOI.coordinate);
+
+        const geometry = await getRouteFromHeigit(currentLocation, selectedPOI.coordinate);
+
+        if (geometry) {
+          const decoded = decodePolyline(geometry);
+          setDummyRoutes([decoded]); // draw the route line on the map
+
+          // Zoom map to show the route nicely
+          if (mapRef.current && decoded.length > 0) {
+            mapRef.current.fitToCoordinates(decoded, {
+              edgePadding: { top: 80, right: 40, bottom: 400, left: 40 },
+              animated: true,
+            });
+          }
+        }
+      }
+    };
+
+    fetchRoute();
+  }, [currentLocation, selectedPOI]);
+
+	// MOST REC
 
   // The UI of a react-native app is wrapped in a return statement
   return (
