@@ -7,7 +7,7 @@ Description: This is the default screen when the user opens the app,
 // Imports
 import BottomSheet, { BottomSheetView } from '@gorhom/bottom-sheet'; // Bottom sheet/sliding panel UI library
 import { useRouter } from 'expo-router'; // Directory based routing
-import { useEffect, useMemo, useRef, useState } from 'react'; // React hooks
+import React, { Fragment, useEffect, useMemo, useRef, useState } from 'react'; // React hooks
 import {
   FlatList,
   Keyboard,
@@ -24,8 +24,9 @@ import {
 // Enables/is requirement for @gorhom/bottom-sheet.
 import { GestureHandlerRootView } from 'react-native-gesture-handler'; // Enables enhanced gesture swiping.
 
-import MapView, { Polyline, UrlTile } from 'react-native-maps'; // For tile overlay map components and drawing route lines
+import MapView, { Marker, Polyline, UrlTile } from 'react-native-maps'; // For tile overlay map components and drawing route lines
 import { Host, Portal } from 'react-native-portalize'; // Allows BottomSheet to sit on top of MapView
+import { Dimensions } from 'react-native';
 
 import * as Location from 'expo-location';
 
@@ -52,6 +53,7 @@ export default function App() {
   const [searchResults, setSearchResults] = useState([])
   const [currentLocation, setCurrentLocation] = useState(null);     // State for tracking user's current location
   const [location, setLocation] = useState(null); // Start location (not necessarily the user's current location but can be)
+  const [fetchedRoute, setFetchedRoute] = useState([]);
 
 
 
@@ -231,49 +233,118 @@ export default function App() {
     console.log('See Building Info pressed');
   };
 
+  const fetchRoutes = async (start, end) => {
+    try{
+      // Grabs from API and coordinates
+      const response = await fetch('https://api.openrouteservice.org/v2/directions/foot-walking', {
+        method: 'POST',
+        headers: {
+          'Authorization': ORS_API_KEY,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          coordinates: [
+            [start.longitude, start.latitude],
+            [end.longitude, end.latitude],
+          ],
+        }),
+      });
+    
+    // Throws error if cannot fetch route
+    if(!response.ok){
+      throw new Error('Failed to fetch route.');
+    }
+
+    const data = await response.json();
+    if(!data.features || data.features.length === 0){
+      console.warn('No route found for these coordinates.');
+      return { routeCoords: [], info: null };
+    }
+
+    const routeCoords = data.features[0].geometry.coordinates.map(([lon, lat]) => ({
+      latitude: lat,
+      longitude: lon,
+    }));
+
+    // For route to change dynamically
+    const summary = data.features[0].properties.summary;
+    const distance = (summary.distance / 1609.34).toFixed(2); // converting to miles
+    const duration = Math.ceil(summary.duration / 60); // converting into minutes
+    return { routeCoords, info: { distance: `${distance} miles`, time: `${duration} min` } };
+  }catch(error){
+    console.error('Error fetching route:', error);
+    return { routeCoords: [], info: null };
+  }
+  };
+
   // On poi view, handles when "go now" button is clicked. Brings up dummy routes 
   // and a view of a dummy route rendered on the map
-  const handleGoNow = () => {
+  const handleGoNow = async () => {
+    if(!currentLocation){
+      await handleLocateMe(); // grabs user location
+    }
+    // Checks to ensure current location or selected POI are both not empty
+    if(!selectedPOI || !currentLocation) return;
+
     setViewMode('directions');
     bottomSheetRef.current?.snapToIndex(2);
 
     // add dummy map routes
-    const routes = [
-      [
-        { latitude: 39.2548, longitude: -76.7097 },
-        { latitude: 39.255, longitude: -76.709 },
-        { latitude: 39.2553, longitude: -76.709 },
-      ],
-      [
-        { latitude: 39.2548, longitude: -76.7097 },
-        { latitude: 39.2549, longitude: -76.7088 },
-        { latitude: 39.255, longitude: -76.7085 },
-      ],
-      [
-        { latitude: 39.2548, longitude: -76.7097 },
-        { latitude: 39.2546, longitude: -76.7093 },
-        { latitude: 39.255, longitude: -76.709 },
-      ],
-    ];
-    setDummyRoutes(routes);
+    // const routes = [
+    //   [
+    //     { latitude: 39.2548, longitude: -76.7097 },
+    //     { latitude: 39.255, longitude: -76.709 },
+    //     { latitude: 39.2553, longitude: -76.709 },
+    //   ],
+    //   [
+    //     { latitude: 39.2548, longitude: -76.7097 },
+    //     { latitude: 39.2549, longitude: -76.7088 },
+    //     { latitude: 39.255, longitude: -76.7085 },
+    //   ],
+    //   [
+    //     { latitude: 39.2548, longitude: -76.7097 },
+    //     { latitude: 39.2546, longitude: -76.7093 },
+    //     { latitude: 39.255, longitude: -76.709 },
+    //   ],
+    // ];
 
-    // Zoom into the route area
-    if (mapRef.current && routes.length > 0) {
-      const allCoords = routes.flat();
-      mapRef.current.fitToCoordinates(allCoords, {
+    // Gets the route
+    const result = await fetchRoutes(currentLocation, selectedPOI.coordinate);
+
+    // Puts it into dummyRoutes
+    if(result.routeCoords.length > 0){
+      setDummyRoutes([result.routeCoords]);
+      setFetchedRoute([result.info]);
+    }
+
+    // Checks if it can go to those coordinates
+    if(mapRef.current && result.routeCoords.length > 0){
+      mapRef.current.fitToCoordinates(result.routeCoords, {
         edgePadding: { top: 80, right: 40, bottom: 400, left: 40 },
         animated: true,
       });
+    }else{
+      console.warn('No route found.');
     }
+    // setDummyRoutes(routes);
+
+    // Zoom into the route area
+    // if (mapRef.current && routes.length > 0) {
+    //   const allCoords = routes.flat();
+    //   mapRef.current.fitToCoordinates(allCoords, {
+    //     edgePadding: { top: 80, right: 40, bottom: 400, left: 40 },
+    //     animated: true,
+    //   });
+    // }
   };
 
   // const fetchRoutes()
 
-  const routes = [
-    { id: '1', name: 'Route 1', time: '7 min', distance: '0.5 miles' },
-    { id: '2', name: 'Route 2', time: '8 min', distance: '0.55 miles' },
-    { id: '3', name: 'Route 3', time: '6 min', distance: '0.45 miles' },
-  ];
+  // const routes = [
+  //   { id: '1', name: 'Route 1', time: '7 min', distance: '0.5 miles' },
+  //   { id: '2', name: 'Route 2', time: '8 min', distance: '0.55 miles' },
+  //   { id: '3', name: 'Route 3', time: '6 min', distance: '0.45 miles' },
+  // ];
 
 
   // The UI of a react-native app is wrapped in a return statement
@@ -306,14 +377,21 @@ export default function App() {
             />
             {/* Draw dummy routes if in directions mode */}
             {viewMode === 'directions' &&
-              dummyRoutes.map((routeCoords, idx) => (
+              dummyRoutes.map((route, index) => (
+              <React.Fragment key={`route-group-${index}`}>
                 <Polyline
-                  key={idx}
-                  coordinates={routeCoords}
+                  key={`route-${index}`}
+                  coordinates={route}
                   strokeColor="#007AFF"
                   strokeWidth={4}
+                  lineCap="round"
+                  lineJoin="round"
                 />
-              ))}
+                {/* Draws start and ending route */}
+                <Marker coordinate={dummyRoutes[0][0]} title="Start" />
+                <Marker coordinate={dummyRoutes[0][dummyRoutes[0].length - 1]} title="End" />
+              </React.Fragment>
+            ))}
           </MapView>
 
           {/* Add Dummy POI / Clear Button */}
@@ -452,12 +530,12 @@ export default function App() {
 
                     {/* List of routes  */}
                     <FlatList
-                      data={routes}
-                      keyExtractor={(item) => item.id}
-                      renderItem={({ item }) => (
+                      data={fetchedRoute}
+                      keyExtractor={(item, index) => index.toString()}
+                      renderItem={({ item, index }) => (
                         <View style={styles.routeItem}>
                           <View style={{ flex: 1 }}>
-                            <Text style={styles.routeType}>{item.name}</Text>
+                            <Text style={styles.routeType}>{index + 1}</Text>
                             <Text style={styles.routeDetails}>
                               {item.time} • {item.distance}
                             </Text>
