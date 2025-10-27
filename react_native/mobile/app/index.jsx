@@ -306,26 +306,26 @@ export default function App() {
     setViewMode('directions');
     bottomSheetRef.current?.snapToIndex(2);
 
-    // add dummy map routes
-    const routes = [
-      [
-        { latitude: 39.2548, longitude: -76.7097 },
-        { latitude: 39.255, longitude: -76.709 },
-        { latitude: 39.2553, longitude: -76.709 },
-      ],
-      [
-        { latitude: 39.2548, longitude: -76.7097 },
-        { latitude: 39.2549, longitude: -76.7088 },
-        { latitude: 39.255, longitude: -76.7085 },
-      ],
-      [
-        { latitude: 39.2548, longitude: -76.7097 },
-        { latitude: 39.2546, longitude: -76.7093 },
-        { latitude: 39.255, longitude: -76.709 },
-      ],
-    ];
-    setDummyRoutes(routes);
-
+//    // add dummy map routes
+//    const routes = [
+//      [
+//        { latitude: 39.2548, longitude: -76.7097 },
+//        { latitude: 39.255, longitude: -76.709 },
+//        { latitude: 39.2553, longitude: -76.709 },
+//      ],
+//      [
+//        { latitude: 39.2548, longitude: -76.7097 },
+//        { latitude: 39.2549, longitude: -76.7088 },
+//        { latitude: 39.255, longitude: -76.7085 },
+//      ],
+//      [
+//        { latitude: 39.2548, longitude: -76.7097 },
+//        { latitude: 39.2546, longitude: -76.7093 },
+//        { latitude: 39.255, longitude: -76.709 },
+//      ],
+//    ];
+//    setDummyRoutes(routes);
+//
     // Zoom into the route area
     if (mapRef.current && routes.length > 0) {
       const allCoords = routes.flat();
@@ -402,8 +402,7 @@ export default function App() {
               maximumZ={19}
             />
             {/* Draw dummy routes if in directions mode */}
-            {viewMode === 'directions' &&
-              dummyRoutes.map((routeCoords, idx) => (
+            {dummyRoutes.map((routeCoords, idx) => (
                 <Polyline
                   key={idx}
                   coordinates={routeCoords}
