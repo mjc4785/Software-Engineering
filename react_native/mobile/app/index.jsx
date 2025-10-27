@@ -4,6 +4,7 @@ Description: This is the default screen when the user opens the app,
               shows the map canvas and a search bar.
 */
 
+
 // Imports
 import BottomSheet, { BottomSheetView } from '@gorhom/bottom-sheet'; // Bottom sheet/sliding panel UI library
 import { useRouter } from 'expo-router'; // Directory based routing
