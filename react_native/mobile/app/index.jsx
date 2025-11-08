@@ -90,9 +90,9 @@ export default function App() {
     }
   };
 
-	//
-	// MOST RECENT ADDITION 10/27/25
-	//
+  //
+  // MOST RECENT ADDITION 10/27/25
+  //
 
   // Call OpenRouteService Directions API to get route from current location to selected destination
   const getRouteFromHeigit = async (start, end) => {
@@ -110,10 +110,10 @@ export default function App() {
           ],
         }),
       });
-  
+
       const data = await response.json();
       console.log("Routing response:", data);
-  
+
       if (data?.routes?.[0]?.geometry) {
         return data.routes[0].geometry; // encoded polyline
       } else {
@@ -130,7 +130,7 @@ export default function App() {
   function decodePolyline(encoded) {
     let points = [];
     let index = 0, lat = 0, lng = 0;
-  
+
     while (index < encoded.length) {
       let b, shift = 0, result = 0;
       do {
@@ -140,7 +140,7 @@ export default function App() {
       } while (b >= 0x20);
       let dlat = result & 1 ? ~(result >> 1) : result >> 1;
       lat += dlat;
-  
+
       shift = 0;
       result = 0;
       do {
@@ -150,13 +150,13 @@ export default function App() {
       } while (b >= 0x20);
       let dlng = result & 1 ? ~(result >> 1) : result >> 1;
       lng += dlng;
-  
+
       points.push({ latitude: lat / 1e5, longitude: lng / 1e5 });
     }
-  
+
     return points;
   }
-	//END OF MOST RECENT
+  //END OF MOST RECENT
 
   // Fetch matching locations from OpenStreetMap (Nominatim)
   const searchPlaces = async (query) => {
@@ -306,26 +306,26 @@ export default function App() {
     setViewMode('directions');
     bottomSheetRef.current?.snapToIndex(2);
 
-//    // add dummy map routes
-//    const routes = [
-//      [
-//        { latitude: 39.2548, longitude: -76.7097 },
-//        { latitude: 39.255, longitude: -76.709 },
-//        { latitude: 39.2553, longitude: -76.709 },
-//      ],
-//      [
-//        { latitude: 39.2548, longitude: -76.7097 },
-//        { latitude: 39.2549, longitude: -76.7088 },
-//        { latitude: 39.255, longitude: -76.7085 },
-//      ],
-//      [
-//        { latitude: 39.2548, longitude: -76.7097 },
-//        { latitude: 39.2546, longitude: -76.7093 },
-//        { latitude: 39.255, longitude: -76.709 },
-//      ],
-//    ];
-//    setDummyRoutes(routes);
-//
+    //    // add dummy map routes
+    //    const routes = [
+    //      [
+    //        { latitude: 39.2548, longitude: -76.7097 },
+    //        { latitude: 39.255, longitude: -76.709 },
+    //        { latitude: 39.2553, longitude: -76.709 },
+    //      ],
+    //      [
+    //        { latitude: 39.2548, longitude: -76.7097 },
+    //        { latitude: 39.2549, longitude: -76.7088 },
+    //        { latitude: 39.255, longitude: -76.7085 },
+    //      ],
+    //      [
+    //        { latitude: 39.2548, longitude: -76.7097 },
+    //        { latitude: 39.2546, longitude: -76.7093 },
+    //        { latitude: 39.255, longitude: -76.709 },
+    //      ],
+    //    ];
+    //    setDummyRoutes(routes);
+    //
     // Zoom into the route area
     if (mapRef.current && routes.length > 0) {
       const allCoords = routes.flat();
@@ -344,7 +344,7 @@ export default function App() {
     { id: '3', name: 'Route 3', time: '6 min', distance: '0.45 miles' },
   ];
 
-// MOST REC 
+  // MOST REC 
 
   useEffect(() => {
     const fetchRoute = async () => {
@@ -371,7 +371,7 @@ export default function App() {
     fetchRoute();
   }, [currentLocation, selectedPOI]);
 
-	// MOST REC
+  // MOST REC
 
   // The UI of a react-native app is wrapped in a return statement
   return (
@@ -403,13 +403,13 @@ export default function App() {
             />
             {/* Draw dummy routes if in directions mode */}
             {dummyRoutes.map((routeCoords, idx) => (
-                <Polyline
-                  key={idx}
-                  coordinates={routeCoords}
-                  strokeColor="#007AFF"
-                  strokeWidth={4}
-                />
-              ))}
+              <Polyline
+                key={idx}
+                coordinates={routeCoords}
+                strokeColor="#007AFF"
+                strokeWidth={4}
+              />
+            ))}
           </MapView>
 
           {/* Add Dummy POI / Clear Button */}
