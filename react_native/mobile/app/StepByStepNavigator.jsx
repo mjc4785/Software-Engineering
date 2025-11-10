@@ -14,10 +14,10 @@ export default function NavigationScreen() {
     const { name, time } = useLocalSearchParams();
 
     const steps = [
-        { id: 1, text: 'Head north on Main Walkway', distance: '100m' },
-        { id: 2, text: 'Turn right at Library Lawn', distance: '200m' },
-        { id: 3, text: 'Continue straight for 200m', distance: '200m' },
-        { id: 4, text: 'Destination will be on your left', distance: '50m' },
+        { id: 1, text: 'Take a right onto the path', distance: '730ft' },
+        { id: 2, text: 'Take a left onto the path', distance: '520ft' },
+        { id: 3, text: 'Take a run onto the road', distance: '730ft' },
+        { id: 4, text: 'On your right: Performing Arts and Humanities Building', distance: '140ft' },
     ];
 
     const [currentStep, setCurrentStep] = useState(0);
