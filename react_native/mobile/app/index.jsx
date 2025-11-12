@@ -9,8 +9,8 @@ import { WebView } from 'react-native-webview';
 import Constants from 'expo-constants';
 
 // Load environment variables from app.config.js
-const { BACKEND_IP, BACKEND_PORT } = Constants.expoConfig?.extra || {};
-const backendUrl = "https://c8fc091c1a5c.ngrok-free.app/map/";
+const { BACKEND_IP, BACKEND_PORT, MAP_WEBVIEW_URL } = Constants.expoConfig?.extra || {};
+const backendUrl = `${MAP_WEBVIEW_URL}/map/`;
 // const backendUrl = `http://${BACKEND_IP}:${BACKEND_PORT}/map/`;
 
 console.log('Loading backend from:', backendUrl);
