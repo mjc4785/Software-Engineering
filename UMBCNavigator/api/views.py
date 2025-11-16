@@ -30,29 +30,25 @@ def search_poi(request):
 
 @api_view(['POST'])
 def get_route(request):
-    start = request.data.get("start")     # [lon, lat]
-    end = request.data.get("end")         # [lon, lat]
+    try:
+        start = request.data.get("start")  # { lat, lon }
+        end = request.data.get("end")      # { lat, lon }
 
-    url = "https://api.openrouteservice.org/v2/directions/foot-walking"
-    headers = {"Authorization": ORS_API_KEY}
-    body = { "coordinates": [start, end] }
+        url = "https://api.openrouteservice.org/v2/directions/foot-walking"
+        headers = {"Authorization": ORS_API_KEY}
+        body = {
+            "coordinates": [
+                [start["longitude"], start["latitude"]],
+                [end["longitude"], end["latitude"]],
+            ]
+        }
 
-    resp = requests.post(url, json=body, headers=headers).json()
-    return Response(resp)
+        ors_response = requests.post(url, json=body, headers=headers).json()
 
-@api_view(["GET"])
-def get_route(request):
-    start = request.GET.get("start")  # "lon,lat"
-    end = request.GET.get("end")  # "lon,lat"
+        return Response(ors_response)
 
-    url = "https://api.openrouteservice.org/v2/directions/foot-walking"
-    headers = {
-        "Authorization": "eyJvcmciOiI1YjNjZTM1OTc4NTExMTAwMDFjZjYyNDgiLCJpZCI6IjJmM2NiNzU0ZjQ4NTQxYmJiODNmMTE0OTU4ZTdlODY0IiwiaCI6Im11cm11cjY0In0="
-    }
-    params = {"start": start, "end": end}
-
-    r = requests.get(url, headers=headers, params=params)
-    return Response(r.json())
+    except Exception as e:
+        return Response({"error": str(e)}, status=500)
 
 
 def test_endpoint(request):

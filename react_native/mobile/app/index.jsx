@@ -91,40 +91,75 @@ export default function App() {
   };
 
 	//
-	// MOST RECENT ADDITION 10/27/25
+	// MOST RECENT ADDITION 11/16/25
 	//
 
-  // Call OpenRouteService Directions API to get route from current location to selected destination
-  const getRouteFromHeigit = async (start, end) => {
+  const getRouteFromBackend = async (start, end) => {
     try {
-      const response = await fetch("https://api.openrouteservice.org/v2/directions/foot-walking", {
+      const response = await fetch("http://10.0.2.15:8000/api/route/", { // /24 if it needs more
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: ORS_API_KEY,
         },
         body: JSON.stringify({
-          coordinates: [
-            [start.longitude, start.latitude],
-            [end.longitude, end.latitude],
-          ],
+          start: {
+            latitude: start.latitude,
+            longitude: start.longitude,
+          },
+          end: {
+            latitude: end.latitude,
+            longitude: end.longitude,
+          },
         }),
       });
   
       const data = await response.json();
-      console.log("Routing response:", data);
+      console.log("Backend routing response:", data);
   
       if (data?.routes?.[0]?.geometry) {
         return data.routes[0].geometry; // encoded polyline
       } else {
-        console.warn("No geometry returned from routing API");
+        console.warn("No geometry returned from backend routing API");
         return null;
       }
     } catch (error) {
-      console.error("Error fetching route:", error);
+      console.error("Error fetching route from backend:", error);
       return null;
     }
   };
+
+	
+//  // Call OpenRouteService Directions API to get route from current location to selected destination
+//  const getRouteFromHeigit = async (start, end) => {
+//    try {
+//      const response = await fetch("https://api.openrouteservice.org/v2/directions/foot-walking", {
+//        method: "POST",
+//        headers: {
+//          "Content-Type": "application/json",
+//          Authorization: ORS_API_KEY,
+//        },
+//        body: JSON.stringify({
+//          coordinates: [
+//            [start.longitude, start.latitude],
+//            [end.longitude, end.latitude],
+//          ],
+//        }),
+//      });
+//  
+//      const data = await response.json();
+//      console.log("Routing response:", data);
+//  
+//      if (data?.routes?.[0]?.geometry) {
+//        return data.routes[0].geometry; // encoded polyline
+//      } else {
+//        console.warn("No geometry returned from routing API");
+//        return null;
+//      }
+//    } catch (error) {
+//      console.error("Error fetching route:", error);
+//      return null;
+//    }
+//  };
 
   // Helper to decode encoded polyline into an array of lat/lon pairs
   function decodePolyline(encoded) {
