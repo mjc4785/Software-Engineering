@@ -15,18 +15,21 @@ def search_poi(request):
     lat = request.data.get("latitude")
     lon = request.data.get("longitude")
 
+    if not query or lat is None or lon is None:
+        return Response({"error": "query, latitude, and longitude required"}, status=400)
+
     url = "https://api.openrouteservice.org/geocode/search"
     params = {
         "text": query,
         "api_key": ORS_API_KEY,
         "boundary.circle.lat": lat,
         "boundary.circle.lon": lon,
+
         "boundary.circle.radius": 1000,
     }
 
     resp = requests.get(url, params=params).json()
     return Response(resp)
-
 
 @api_view(['POST'])
 def get_route(request):
