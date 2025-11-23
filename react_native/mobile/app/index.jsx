@@ -28,6 +28,7 @@ import MapView, { Polyline, UrlTile } from 'react-native-maps';
 import { Host, Portal } from 'react-native-portalize';
 
 import Animated, { useAnimatedStyle, useSharedValue } from 'react-native-reanimated';
+import Ionicons from 'react-native-vector-icons/Ionicons';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -238,9 +239,10 @@ export default function App() {
           {/* Locate Me Button */}
           <Animated.View style={[styles.locateButton, locateMeStyle]}>
             <TouchableOpacity onPress={handleLocateMe}>
-              <Text style={styles.locateButtonText}>📍</Text>
+              <Ionicons name="navigate" size={20} color="#fff" />
             </TouchableOpacity>
           </Animated.View>
+
 
           {/* Menu Button */}
           <TouchableOpacity style={styles.menuButton}>
