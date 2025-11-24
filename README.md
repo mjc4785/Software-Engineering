@@ -21,6 +21,7 @@ If there is anything unfinished or bugs to report in existing code, please reach
 ## Format
 
 CURRENT FORMAT
+```
 .
 ├── gitsteps.txt
 ├── react_native
@@ -53,9 +54,11 @@ CURRENT FORMAT
         ├── settings.py
         ├── urls.py
         └── wsgi.py
-
+```
 
 For this project, we want to have a react-native frontend, django backend, ad firebase DB for storage. for resources for Django, look [here](https://docs.djangoproject.com/en/5.2/) 
+
+[This](https://supabase.com/dashboard/project/yjfahjfhyfxgeeweopez) is the link to our Database
 
 The formatting for the repository is simple. In the UMBCNavigator folder is the manage.py file and another UMBCNavigator folder. 
 - **manage.py** is used in space of django-admin command. (if you don't know what that is that's ok.) We can do things like change the database or run the lightweight web server. 
