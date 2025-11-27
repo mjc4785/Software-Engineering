@@ -41,6 +41,7 @@ INSTALLED_APPS = [
     "rest_framework_gis",
     "corsheaders",
     "django.contrib.gis",
+    "api",
 ]
 
 MIDDLEWARE = [
@@ -76,13 +77,10 @@ WSGI_APPLICATION = "UMBCNavigator.wsgi.application"
 
 # Database
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
+import dj_database_url
+import os
 
-DATABASES = {
-    "default": {
-        "ENGINE": "django.db.backends.sqlite3",
-        "NAME": BASE_DIR / "db.sqlite3",
-    }
-}
+DATABASES = {"default": dj_database_url.parse(os.environ.get("DATABASE_URL"))}
 
 
 # Password validation
@@ -125,18 +123,3 @@ STATIC_URL = "static/"
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
-
-
-## database connection
-import dj_database_url
-import os
-
-DATABASE_URL = os.getenv("DATABASE_URL")  # or place your URL directly here
-
-DATABASES = {
-    "default": dj_database_url.parse(
-        DATABASE_URL,
-        conn_max_age=600,  # keeps connections alive, needed for prod
-        ssl_require=True,  # for Supabase
-    )
-}

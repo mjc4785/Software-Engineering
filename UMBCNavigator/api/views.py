@@ -5,6 +5,8 @@ import requests
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from django.conf import settings
+from django.http import JsonResponse
+from .models import CustomPOI, OsmPoint, OsmPolygon
 
 ORS_API_KEY = "YOUR_ORS_KEY"
 
@@ -26,3 +28,12 @@ def get_route(request):
 
 def test_endpoint(request):
     return Response({"message": "Hello from Django!"})
+
+
+# test db connection
+def db_test(request):
+    try:
+        count = CustomPOI.objects.count()
+        return JsonResponse({"connected": True, "poi_count": count})
+    except Exception as e:
+        return JsonResponse({"connected": False, "error": str(e)}, status=500)
