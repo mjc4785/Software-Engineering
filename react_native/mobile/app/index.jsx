@@ -381,30 +381,42 @@ export default function App() {
 
 // MOST REC 
 
-  useEffect(() => {
-    const fetchRoute = async () => {
-      if (currentLocation && selectedPOI?.coordinate) {
-        console.log("Fetching route from:", currentLocation, "to:", selectedPOI.coordinate);
+const response = await fetch(`${BASE_URL}/route/`, {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({
+    start: { latitude: myLat, longitude: myLon },
+    end:   { latitude: destLat, longitude: destLon }
+  }),
+});
 
-        const geometry = await getRouteFromHeigit(currentLocation, selectedPOI.coordinate);
+const json = await response.json();
+console.log("Route:", json);
 
-        if (geometry) {
-          const decoded = decodePolyline(geometry);
-          setDummyRoutes([decoded]); // draw the route line on the map
-
-          // Zoom map to show the route nicely
-          if (mapRef.current && decoded.length > 0) {
-            mapRef.current.fitToCoordinates(decoded, {
-              edgePadding: { top: 80, right: 40, bottom: 400, left: 40 },
-              animated: true,
-            });
-          }
-        }
-      }
-    };
-
-    fetchRoute();
-  }, [currentLocation, selectedPOI]);
+//  useEffect(() => {
+//    const fetchRoute = async () => {
+//      if (currentLocation && selectedPOI?.coordinate) {
+//        console.log("Fetching route from:", currentLocation, "to:", selectedPOI.coordinate);
+//
+//        const geometry = await getRouteFromHeigit(currentLocation, selectedPOI.coordinate);
+//
+//        if (geometry) {
+//          const decoded = decodePolyline(geometry);
+//          setDummyRoutes([decoded]); // draw the route line on the map
+//
+//          // Zoom map to show the route nicely
+//          if (mapRef.current && decoded.length > 0) {
+//            mapRef.current.fitToCoordinates(decoded, {
+//              edgePadding: { top: 80, right: 40, bottom: 400, left: 40 },
+//              animated: true,
+//            });
+//          }
+//        }
+//      }
+//    };
+//
+//    fetchRoute();
+//  }, [currentLocation, selectedPOI]);
 
 	// MOST REC
 

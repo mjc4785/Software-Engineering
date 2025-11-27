@@ -34,11 +34,15 @@ def search_poi(request):
 @api_view(['POST'])
 def get_route(request):
     try:
-        start = request.data.get("start")  # { lat, lon }
-        end = request.data.get("end")      # { lat, lon }
+        start = request.data.get("start")
+        end = request.data.get("end")
 
-        url = "https://api.openrouteservice.org/v2/directions/foot-walking"
+        if not start or not end:
+            return Response({"error": "start and end coordinates required"}, status=400)
+
+        url = "https://api.openrouteservice.org/v2/directions/foot-walking/geojson"
         headers = {"Authorization": ORS_API_KEY}
+
         body = {
             "coordinates": [
                 [start["longitude"], start["latitude"]],
@@ -47,12 +51,10 @@ def get_route(request):
         }
 
         ors_response = requests.post(url, json=body, headers=headers).json()
-
         return Response(ors_response)
 
     except Exception as e:
         return Response({"error": str(e)}, status=500)
-
 
 def test_endpoint(request):
     return Response({"message": "Hello from Django!"})
