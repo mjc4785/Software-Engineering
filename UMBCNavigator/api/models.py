@@ -5,7 +5,7 @@ from django.contrib.gis.db import models
 class OsmPoint(models.Model):
     osm_id = models.BigIntegerField(primary_key=True)
     name = models.CharField(max_length=255, null=True)
-    geom = models.PointField()
+    way = models.PointField()
 
     class Meta:
         managed = False
@@ -16,7 +16,7 @@ class OsmPoint(models.Model):
 class OsmPolygon(models.Model):
     osm_id = models.BigIntegerField(primary_key=True)
     name = models.CharField(max_length=255, null=True)
-    geom = models.PolygonField()
+    way = models.PolygonField()
 
     class Meta:
         managed = False
@@ -25,22 +25,14 @@ class OsmPolygon(models.Model):
 
 # Corresponds to custom_poi
 class CustomPOI(models.Model):
+    poi_id = models.IntegerField(primary_key=True)
     name = models.CharField(max_length=255)
     website = models.CharField(max_length=255)
-    location_desc = models.TextField(null=True)
-    osm_point = models.ForeignKey(
-        OsmPoint, null=True, blank=True, on_delete=models.SET_NULL
-    )
-    osm_polygon = models.ForeignKey(
-        OsmPolygon, null=True, blank=True, on_delete=models.SET_NULL
-    )
-
-    def geometry(self):
-        if self.osm_point:
-            return self.osm_point.geom
-        if self.osm_polygon:
-            return self.osm_polygon.geom
-        return None
+    location_description = models.TextField(null=True)
+    poi_type = models.CharField(max_length=50, blank=True, null=True, db_column="type")
+    poi_desc = models.CharField(max_length=255)
+    osm_object = models.CharField(max_length=255)
+    coordinates = models.PointField(srid=4326)
 
     class Meta:
         managed = False

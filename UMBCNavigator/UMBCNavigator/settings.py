@@ -82,6 +82,9 @@ import os
 
 DATABASES = {"default": dj_database_url.parse(os.environ.get("DATABASE_URL"))}
 
+# Force GIS backend
+DATABASES["default"]["ENGINE"] = "django.contrib.gis.db.backends.postgis"
+
 
 # Password validation
 # https://docs.djangoproject.com/en/5.2/ref/settings/#auth-password-validators
