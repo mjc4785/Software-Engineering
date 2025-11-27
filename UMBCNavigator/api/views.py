@@ -7,6 +7,15 @@ from rest_framework.response import Response
 from django.conf import settings
 from django.http import JsonResponse
 from .models import CustomPOI, OsmPoint, OsmPolygon
+import random
+
+# geospacial data django imports
+from django.contrib.gis.geos import Point
+from django.contrib.gis.geos import Polygon
+from django.contrib.gis.geos import GEOSGeometry
+from django.contrib.gis.geos import LinearRing
+from django.contrib.gis.geos import MultiPolygon
+
 
 ORS_API_KEY = "YOUR_ORS_KEY"
 
@@ -30,32 +39,20 @@ def test_endpoint(request):
     return Response({"message": "Hello from Django!"})
 
 
-from django.http import JsonResponse
-from django.contrib.gis.geos import Point
-from django.contrib.gis.geos import Polygon
-from django.contrib.gis.geos import GEOSGeometry
-from django.contrib.gis.geos import LinearRing
-from django.contrib.gis.geos import MultiPolygon
-from .models import CustomPOI, OsmPolygon
-import random
-
-
-from django.http import JsonResponse
-from django.contrib.gis.geos import Point
-from .models import CustomPOI, OsmPolygon
-import random
-
-
+# For custom_pois that dont have a coordinate, make a random one within the parent polygon
 def random_point_in_polygon(polygon):
     """
     Generate a random point inside a polygon.
-    Works for Polygon and MultiPolygon.
+    Works for Polygon (and not MultiPolygon.)
     """
     # If MultiPolygon, pick a random polygon
     # if polygon.geom_type == "MultiPolygon":
     #     polygon = random.choice(polygon)
 
+    # Map polygon boundaries to a bounding box
     min_x, min_y, max_x, max_y = polygon.extent
+
+    # Generate random point and make sure it's in the polygon
     while True:
         x = random.uniform(min_x, max_x)
         y = random.uniform(min_y, max_y)
@@ -64,6 +61,7 @@ def random_point_in_polygon(polygon):
             return point
 
 
+# Convert pois into Geojson
 def pois_geojson(request):
     features = []
 
@@ -71,10 +69,14 @@ def pois_geojson(request):
         # Use POI's own coordinates if available
         if poi.coordinates:
             coordinates = poi.coordinates
+
         # Otherwise, fallback to parent OSM polygon
         elif poi.osm_object:
             try:
+                # Get the parent osm_object (a polygon in this case)
                 parent = OsmPolygon.objects.get(osm_id=poi.osm_object)
+
+                # If the parent has coordinates (way) then find a random point in it
                 if parent.way:
                     coordinates = random_point_in_polygon(parent.way)
                 else:
