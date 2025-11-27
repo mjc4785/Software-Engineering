@@ -25,7 +25,7 @@ import {
 // Enables/is requirement for @gorhom/bottom-sheet.
 import { GestureHandlerRootView } from 'react-native-gesture-handler'; // Enables enhanced gesture swiping.
 
-import MapView, { Polyline, UrlTile } from 'react-native-maps'; // For tile overlay map components and drawing route lines
+import MapView, { Polyline, UrlTile, Marker } from 'react-native-maps'; // For tile overlay map components and drawing route lines
 import { Host, Portal } from 'react-native-portalize'; // Allows BottomSheet to sit on top of MapView
 
 import * as Location from 'expo-location';
@@ -33,6 +33,7 @@ import * as Location from 'expo-location';
 
 // Routing API key 
 const ORS_API_KEY = "eyJvcmciOiI1YjNjZTM1OTc4NTExMTAwMDFjZjYyNDgiLCJpZCI6IjJmM2NiNzU0ZjQ4NTQxYmJiODNmMTE0OTU4ZTdlODY0IiwiaCI6Im11cm11cjY0In0=";
+const BACKEND_URL = "https://8f8bd6f8dbaf.ngrok-free.app/"
 
 // Main React component
 export default function App() {
@@ -53,7 +54,7 @@ export default function App() {
   const [searchResults, setSearchResults] = useState([])
   const [currentLocation, setCurrentLocation] = useState(null);     // State for tracking user's current location
   const [location, setLocation] = useState(null); // Start location (not necessarily the user's current location but can be)
-
+  const [customPOIs, setCustomPOIs] = useState([]);
 
 
   // hook to navigate between screens
@@ -90,9 +91,9 @@ export default function App() {
     }
   };
 
-	//
-	// MOST RECENT ADDITION 10/27/25
-	//
+  //
+  // MOST RECENT ADDITION 10/27/25
+  //
 
   // Call OpenRouteService Directions API to get route from current location to selected destination
   const getRouteFromHeigit = async (start, end) => {
@@ -110,10 +111,10 @@ export default function App() {
           ],
         }),
       });
-  
+
       const data = await response.json();
       console.log("Routing response:", data);
-  
+
       if (data?.routes?.[0]?.geometry) {
         return data.routes[0].geometry; // encoded polyline
       } else {
@@ -130,7 +131,7 @@ export default function App() {
   function decodePolyline(encoded) {
     let points = [];
     let index = 0, lat = 0, lng = 0;
-  
+
     while (index < encoded.length) {
       let b, shift = 0, result = 0;
       do {
@@ -140,7 +141,7 @@ export default function App() {
       } while (b >= 0x20);
       let dlat = result & 1 ? ~(result >> 1) : result >> 1;
       lat += dlat;
-  
+
       shift = 0;
       result = 0;
       do {
@@ -150,13 +151,13 @@ export default function App() {
       } while (b >= 0x20);
       let dlng = result & 1 ? ~(result >> 1) : result >> 1;
       lng += dlng;
-  
+
       points.push({ latitude: lat / 1e5, longitude: lng / 1e5 });
     }
-  
+
     return points;
   }
-	//END OF MOST RECENT
+  //END OF MOST RECENT
 
   // Fetch matching locations from OpenStreetMap (Nominatim)
   const searchPlaces = async (query) => {
@@ -277,6 +278,28 @@ export default function App() {
     bottomSheetRef.current?.snapToIndex(1);
   };
 
+  useEffect(() => {
+    const fetchPOIs = async () => {
+      try {
+        const res = await fetch(`${BACKEND_URL}api/poi-geojson/`);
+        const geojson = await res.json();
+
+        const parsed = geojson.features.map(f => ({
+          id: f.properties.poi_id,
+          name: f.properties.name,
+          latitude: f.geometry.coordinates[1],
+          longitude: f.geometry.coordinates[0],
+        }));
+
+        setCustomPOIs(parsed);
+      } catch (err) {
+        console.error("Error fetching POIs:", err);
+      }
+    };
+
+    fetchPOIs();
+  }, []);
+
   // Same behavior as above but for a dummy POI
   const handleAddDummyPOI = () => {
     setSelectedPOI({
@@ -306,26 +329,26 @@ export default function App() {
     setViewMode('directions');
     bottomSheetRef.current?.snapToIndex(2);
 
-//    // add dummy map routes
-//    const routes = [
-//      [
-//        { latitude: 39.2548, longitude: -76.7097 },
-//        { latitude: 39.255, longitude: -76.709 },
-//        { latitude: 39.2553, longitude: -76.709 },
-//      ],
-//      [
-//        { latitude: 39.2548, longitude: -76.7097 },
-//        { latitude: 39.2549, longitude: -76.7088 },
-//        { latitude: 39.255, longitude: -76.7085 },
-//      ],
-//      [
-//        { latitude: 39.2548, longitude: -76.7097 },
-//        { latitude: 39.2546, longitude: -76.7093 },
-//        { latitude: 39.255, longitude: -76.709 },
-//      ],
-//    ];
-//    setDummyRoutes(routes);
-//
+    //    // add dummy map routes
+    //    const routes = [
+    //      [
+    //        { latitude: 39.2548, longitude: -76.7097 },
+    //        { latitude: 39.255, longitude: -76.709 },
+    //        { latitude: 39.2553, longitude: -76.709 },
+    //      ],
+    //      [
+    //        { latitude: 39.2548, longitude: -76.7097 },
+    //        { latitude: 39.2549, longitude: -76.7088 },
+    //        { latitude: 39.255, longitude: -76.7085 },
+    //      ],
+    //      [
+    //        { latitude: 39.2548, longitude: -76.7097 },
+    //        { latitude: 39.2546, longitude: -76.7093 },
+    //        { latitude: 39.255, longitude: -76.709 },
+    //      ],
+    //    ];
+    //    setDummyRoutes(routes);
+    //
     // Zoom into the route area
     if (mapRef.current && routes.length > 0) {
       const allCoords = routes.flat();
@@ -344,7 +367,7 @@ export default function App() {
     { id: '3', name: 'Route 3', time: '6 min', distance: '0.45 miles' },
   ];
 
-// MOST REC 
+  // MOST REC 
 
   useEffect(() => {
     const fetchRoute = async () => {
@@ -371,7 +394,7 @@ export default function App() {
     fetchRoute();
   }, [currentLocation, selectedPOI]);
 
-	// MOST REC
+  // MOST REC
 
   // The UI of a react-native app is wrapped in a return statement
   return (
@@ -395,7 +418,29 @@ export default function App() {
             showsUserLocation={true}
           // followsUserLocation={true} // This makes it so the user location is always focused- don't want this
           >
+            {/* 🔹 Render custom POIs from backend */}
+            {customPOIs.map(poi => (
+              <Marker
+                key={poi.id}
+                coordinate={{
+                  latitude: poi.latitude,
+                  longitude: poi.longitude,
+                }}
+                title={poi.name}
+                onPress={() => {
+                  setSelectedPOI({
+                    name: poi.name,
+                    coordinate: {
+                      latitude: poi.latitude,
+                      longitude: poi.longitude,
+                    }
+                  });
+                  setViewMode('poi');
+                  bottomSheetRef.current?.snapToIndex(1);
+                }}
+              />
 
+            ))}
             {/* Tile overlay using OSM's tile style */}
             <UrlTile
               urlTemplate="https://tile.openstreetmap.org/{z}/{x}/{y}.png"
@@ -403,13 +448,13 @@ export default function App() {
             />
             {/* Draw dummy routes if in directions mode */}
             {dummyRoutes.map((routeCoords, idx) => (
-                <Polyline
-                  key={idx}
-                  coordinates={routeCoords}
-                  strokeColor="#007AFF"
-                  strokeWidth={4}
-                />
-              ))}
+              <Polyline
+                key={idx}
+                coordinates={routeCoords}
+                strokeColor="#007AFF"
+                strokeWidth={4}
+              />
+            ))}
           </MapView>
 
           {/* Add Dummy POI / Clear Button */}
