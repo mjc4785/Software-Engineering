@@ -85,7 +85,25 @@ import random
 from .models import CustomPOI, OsmPoint, OsmPolygon
 
 
+from django.http import JsonResponse
+from django.contrib.gis.geos import Point
+import random
+from .models import (
+    CustomPOI,
+    OsmPoint,
+    OsmPolygon,
+    POIAlias,
+)
+
+
+from django.http import JsonResponse
+from django.contrib.gis.geos import Point
+import random
+from .models import CustomPOI, OsmPoint, OsmPolygon, POIAlias
+
+
 def random_point_in_polygon(poly):
+    """Generate a random point inside a polygon"""
     min_x, min_y, max_x, max_y = poly.extent
     while True:
         p = Point(random.uniform(min_x, max_x), random.uniform(min_y, max_y))
@@ -96,26 +114,36 @@ def random_point_in_polygon(poly):
 def search_pois(request):
     query = request.GET.get("q", "").strip()
 
-    custom_qs = CustomPOI.objects.all()
-    point_qs = OsmPoint.objects.all()
-    polygon_qs = OsmPolygon.objects.all()
+    # --- Search by name ---
+    custom_qs = CustomPOI.objects.filter(name__icontains=query)
+    point_qs = OsmPoint.objects.filter(name__icontains=query)
+    polygon_qs = OsmPolygon.objects.filter(name__icontains=query)
 
-    if query:
-        custom_qs = custom_qs.filter(name__icontains=query)
-        point_qs = point_qs.filter(name__icontains=query)
-        polygon_qs = polygon_qs.filter(name__icontains=query)
+    # --- Search by aliases ---
+    alias_qs = POIAlias.objects.filter(alias__icontains=query)
+
+    # Collect object IDs from aliases
+    custom_ids = [a.custom_poi for a in alias_qs if a.custom_poi]
+    osm_ids = [a.osm_object for a in alias_qs if a.osm_object]
+
+    # Merge alias results with original querysets
+    if custom_ids:
+        custom_qs = custom_qs | CustomPOI.objects.filter(poi_id__in=custom_ids)
+    if osm_ids:
+        point_qs = point_qs | OsmPoint.objects.filter(osm_id__in=osm_ids)
+        polygon_qs = polygon_qs | OsmPolygon.objects.filter(osm_id__in=osm_ids)
 
     features = []
 
     # --- CUSTOM POIs ---
-    for poi in custom_qs:
+    for poi in custom_qs.distinct():
         if poi.coordinates:
             pt = poi.coordinates
         elif poi.osm_object:
             try:
                 poly = OsmPolygon.objects.get(osm_id=poi.osm_object)
                 pt = random_point_in_polygon(poly.way)
-            except:
+            except OsmPolygon.DoesNotExist:
                 continue
         else:
             continue
@@ -133,7 +161,7 @@ def search_pois(request):
         )
 
     # --- OSM POINTS ---
-    for p in point_qs:
+    for p in point_qs.distinct():
         if not p.way:
             continue
         features.append(
@@ -148,12 +176,11 @@ def search_pois(request):
             }
         )
 
-    # --- OSM POLYGONS → convert to random interior point ---
-    for poly in polygon_qs:
+    # --- OSM POLYGONS → random interior point ---
+    for poly in polygon_qs.distinct():
         if not poly.way:
             continue
         pt = random_point_in_polygon(poly.way)
-
         features.append(
             {
                 "type": "Feature",

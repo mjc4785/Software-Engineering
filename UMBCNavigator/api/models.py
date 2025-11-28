@@ -37,3 +37,16 @@ class CustomPOI(models.Model):
     class Meta:
         managed = False
         db_table = "custom_poi"
+
+
+class POIAlias(models.Model):
+    alias_id = models.AutoField(primary_key=True)
+    osm_table = models.CharField(max_length=50, null=True)
+    osm_object = models.BigIntegerField(null=True)
+    custom_poi = models.IntegerField(null=True)  # <--- not a FK
+    alias = models.CharField(max_length=255)
+    type = models.CharField(max_length=50, null=True)
+
+    class Meta:
+        managed = False
+        db_table = "poi_alias"
