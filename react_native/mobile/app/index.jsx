@@ -257,6 +257,12 @@ export default function App() {
     }
   };
 
+  const clearSearch = () => {
+    setInputText("");
+    setGeoResults([]);
+    Keyboard.dismiss();
+  };
+
 
   // Keyboard snap behavior event listener
   useEffect(() => {
@@ -518,13 +524,20 @@ export default function App() {
                 {/* Search input appears only in search mode */}
                 {viewMode === 'search' && (
                   <>
-                    <TextInput
-                      style={styles.searchInput}
-                      placeholder="Search UMBC places…"
-                      value={inputText}
-                      onChangeText={searchPOIs}
-                    />
+                    <View style={styles.searchContainer}>
+                      <TextInput
+                        style={styles.searchInput}
+                        value={inputText}
+                        onChangeText={searchPOIs}
+                        placeholder="Search POIs..."
+                      />
 
+                      {inputText.length > 0 && (
+                        <TouchableOpacity onPress={clearSearch} style={styles.clearButton}>
+                          <Text style={styles.clearButtonText}>×</Text>
+                        </TouchableOpacity>
+                      )}
+                    </View>
 
                     <FlatList
                       data={geoResults}
@@ -641,18 +654,9 @@ const styles = StyleSheet.create({
   handleIndicator: { backgroundColor: '#ccc' },
   sheetContent: { flex: 1, padding: 20 },
   sheetTitle: { fontSize: 18, fontWeight: 'bold', marginBottom: 12 },
-  searchInput: {
-    width: '100%',
-    height: 40,
-    borderRadius: 8,
-    borderColor: '#ccc',
-    borderWidth: 1,
-    paddingHorizontal: 10,
-    backgroundColor: '#fff',
-  },
   poiContainer: { marginTop: 10, alignItems: 'center' },
-  poiLabel: { fontSize: 14, color: '#666' },
-  poiName: { fontSize: 16, fontWeight: 'bold', color: '#222', marginTop: 4, marginBottom: 20 },
+  poiLabel: { fontSize: 12, color: '#666' },
+  poiName: { fontSize: 12, fontWeight: 'bold', color: '#222', marginTop: 4, marginBottom: 20 },
   actionButtonsContainer: { flexDirection: 'row', justifyContent: 'space-between', width: '100%' },
   actionButton: { paddingVertical: 12, borderRadius: 8, alignItems: 'center' },
   infoButton: { flex: 2, backgroundColor: '#f1f097ff', marginRight: 8 },
@@ -751,8 +755,33 @@ const styles = StyleSheet.create({
   },
   searchItemText: {
     fontSize: 16,
-  }
-
-
+  },
+  searchContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#fff",
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    marginHorizontal: 10,
+    marginTop: 10,
+  },
+  searchInput: {
+    width: '100%',
+    height: 40,
+    borderRadius: 8,
+    borderColor: '#464646ff',
+    borderWidth: 1,
+    paddingHorizontal: 10,
+    backgroundColor: '#fff',
+  },
+  clearButton: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+  },
+  clearButtonText: {
+    fontSize: 20,
+    fontWeight: "300",
+  },
 
 });
