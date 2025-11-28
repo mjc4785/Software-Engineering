@@ -33,7 +33,7 @@ import * as Location from 'expo-location';
 
 // Routing API key 
 const ORS_API_KEY = "eyJvcmciOiI1YjNjZTM1OTc4NTExMTAwMDFjZjYyNDgiLCJpZCI6IjJmM2NiNzU0ZjQ4NTQxYmJiODNmMTE0OTU4ZTdlODY0IiwiaCI6Im11cm11cjY0In0=";
-const BACKEND_URL = "https://8f8bd6f8dbaf.ngrok-free.app/"
+const BACKEND_URL = "https://fc7c58fe27c7.ngrok-free.app/"
 
 // Main React component
 export default function App() {
@@ -55,6 +55,7 @@ export default function App() {
   const [currentLocation, setCurrentLocation] = useState(null);     // State for tracking user's current location
   const [location, setLocation] = useState(null); // Start location (not necessarily the user's current location but can be)
   const [customPOIs, setCustomPOIs] = useState([]);
+  const [geoResults, setGeoResults] = useState([]);
 
 
   // hook to navigate between screens
@@ -160,31 +161,37 @@ export default function App() {
   //END OF MOST RECENT
 
   // Fetch matching locations from OpenStreetMap (Nominatim)
-  const searchPlaces = async (query) => {
-    if (!query) {
-      setSearchResults([]);
+  const searchPOIs = async (text) => {
+    setInputText(text);
+
+    if (!text) {
+      setGeoResults([]);
       return;
     }
 
     try {
-      const response = await fetch(
-        `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&viewbox=-76.7205,39.2619,-76.70003,39.2419&bounded=1`
-      );
-      const data = await response.json();
-      setSearchResults(data);
+      const res = await fetch(`${BACKEND_URL}api/search-pois/?q=${encodeURIComponent(text)}`);
+      const data = await res.json();
 
-      // Check if the data exists first
-      if (data.length > 0) {
-        const firstInd = data[0];
-        const lat = parseFloat(firstInd.lat);
-        const lon = parseFloat(firstInd.lon);
-        console.log("First result:", lat, lon);
-      } else {
-        console.warn("No search results found.");
-      }
-    } catch (error) {
-      console.error("Error fetching search results:", error);
+      // GeoJSON → simplified result list
+      const parsed = data.features.map((f, index) => ({
+        id: f.properties.poi_id || f.properties.osm_id || `feat-${index}`,
+        name: f.properties.name,
+        lat: f.geometry.coordinates[1],
+        lon: f.geometry.coordinates[0],
+      }));
+
+      setGeoResults(parsed);
+    } catch (e) {
+      console.error("Search error:", e);
     }
+  };
+
+
+  const fetchResults = async (text) => {
+    const res = await fetch(`${BASE_URL}/api/search-pois/?q=${text}`);
+    const data = await res.json();
+    setGeoJson(data);
   };
 
   // Function to send the user's current GPS coordinates to the backend server
@@ -416,9 +423,9 @@ export default function App() {
             // Handle when a POI on the map is clicked
             onPoiClick={handlePoiClick}
             showsUserLocation={true}
-          // followsUserLocation={true} // This makes it so the user location is always focused- don't want this
+          // followsUserLocation={true} // This makes it so the user location is always focused- don't want this always
           >
-            {/* 🔹 Render custom POIs from backend */}
+            {/* Render custom POIs from backend */}
             {customPOIs.map(poi => (
               <Marker
                 key={poi.id}
@@ -513,42 +520,40 @@ export default function App() {
                   <>
                     <TextInput
                       style={styles.searchInput}
-                      onChangeText={(text) => {
-                        setInputText(text);
-                        searchPlaces(text); // Trigger search as user types
-                      }}
+                      placeholder="Search UMBC places…"
                       value={inputText}
-                      placeholder="Where would you like to go?"
-                      placeholderTextColor="#999"
+                      onChangeText={searchPOIs}
                     />
-                    <Text>Current input: {inputText}</Text>
+
 
                     <FlatList
-                      data={searchResults}
-                      keyExtractor={(item) => item.place_id.toString()}
+                      data={geoResults}
+                      keyExtractor={(item) => item.id.toString()}
+                      keyboardShouldPersistTaps="handled"
                       renderItem={({ item }) => (
                         <TouchableOpacity
-                          style={{
-                            paddingVertical: 10,
-                            borderBottomWidth: 1,
-                            borderBottomColor: "#eee",
-                          }}
+                          style={styles.searchItem}
                           onPress={() => {
-                            const coordinate = {
-                              latitude: parseFloat(item.lat),
-                              longitude: parseFloat(item.lon),
-                            };
-                            setSelectedPOI({ name: item.display_name, coordinate });
+                            // zoom map and select POI
+                            const coord = { latitude: item.lat, longitude: item.lon };
+
+                            setSelectedPOI({ name: item.name, coordinate: coord });
                             setViewMode("poi");
+
+                            mapRef.current?.animateToRegion({
+                              ...coord,
+                              latitudeDelta: 0.002,
+                              longitudeDelta: 0.002,
+                            });
+
                             bottomSheetRef.current?.snapToIndex(1);
-                            setSearchResults([]);
-                            setInputText("");
                           }}
                         >
-                          <Text style={{ fontSize: 14 }}>{item.display_name}</Text>
+                          <Text style={styles.searchItemText}>{item.name}</Text>
                         </TouchableOpacity>
                       )}
                     />
+
                   </>
                 )}
 
@@ -738,6 +743,16 @@ const styles = StyleSheet.create({
     fontWeight: '600',
 
   },
+  searchItem: {
+    paddingVertical: 12,
+    paddingHorizontal: 15,
+    borderBottomWidth: 1,
+    borderColor: "#eee",
+  },
+  searchItemText: {
+    fontSize: 16,
+  }
+
 
 
 });

@@ -1,7 +1,6 @@
 from django.shortcuts import render
 import requests
 
-# Create your views here.
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from django.conf import settings
@@ -9,21 +8,16 @@ from django.http import JsonResponse
 from .models import CustomPOI, OsmPoint, OsmPolygon
 import random
 
-# geospacial data django imports
-from django.contrib.gis.geos import Point
-from django.contrib.gis.geos import Polygon
-from django.contrib.gis.geos import GEOSGeometry
-from django.contrib.gis.geos import LinearRing
-from django.contrib.gis.geos import MultiPolygon
-
-
-ORS_API_KEY = "YOUR_ORS_KEY"
+# geospatial
+from django.contrib.gis.geos import Point, GEOSGeometry, Polygon, MultiPolygon
+from django.db import connection
+import json
 
 
 @api_view(["GET"])
 def get_route(request):
-    start = request.GET.get("start")  # "lon,lat"
-    end = request.GET.get("end")  # "lon,lat"
+    start = request.GET.get("start")
+    end = request.GET.get("end")
 
     url = "https://api.openrouteservice.org/v2/directions/foot-walking"
     headers = {
@@ -39,53 +33,29 @@ def test_endpoint(request):
     return Response({"message": "Hello from Django!"})
 
 
-# For custom_pois that dont have a coordinate, make a random one within the parent polygon
-def random_point_in_polygon(polygon):
-    """
-    Generate a random point inside a polygon.
-    Works for Polygon (and not MultiPolygon.)
-    """
-    # If MultiPolygon, pick a random polygon
-    # if polygon.geom_type == "MultiPolygon":
-    #     polygon = random.choice(polygon)
-
-    # Map polygon boundaries to a bounding box
-    min_x, min_y, max_x, max_y = polygon.extent
-
-    # Generate random point and make sure it's in the polygon
-    while True:
-        x = random.uniform(min_x, max_x)
-        y = random.uniform(min_y, max_y)
-        point = Point(x, y)
-        if polygon.contains(point):
-            return point
-
-
-# Convert pois into Geojson
+# ---------------------------
+#  CUSTOM POI → GEOJSON
+# ----------------------------
 def pois_geojson(request):
     features = []
 
     for poi in CustomPOI.objects.all():
-        # Use POI's own coordinates if available
         if poi.coordinates:
             coordinates = poi.coordinates
 
-        # Otherwise, fallback to parent OSM polygon
         elif poi.osm_object:
             try:
-                # Get the parent osm_object (a polygon in this case)
                 parent = OsmPolygon.objects.get(osm_id=poi.osm_object)
 
-                # If the parent has coordinates (way) then find a random point in it
                 if parent.way:
                     coordinates = random_point_in_polygon(parent.way)
                 else:
-                    # Skip if parent polygon has no geometry
                     continue
+
             except OsmPolygon.DoesNotExist:
                 continue
+
         else:
-            # Skip POIs with no coordinates and no parent
             continue
 
         feature = {
@@ -105,9 +75,95 @@ def pois_geojson(request):
         }
         features.append(feature)
 
-    data = {
-        "type": "FeatureCollection",
-        "features": features,
-    }
-
+    data = {"type": "FeatureCollection", "features": features}
     return JsonResponse(data)
+
+
+from django.http import JsonResponse
+from django.contrib.gis.geos import Point
+import random
+from .models import CustomPOI, OsmPoint, OsmPolygon
+
+
+def random_point_in_polygon(poly):
+    min_x, min_y, max_x, max_y = poly.extent
+    while True:
+        p = Point(random.uniform(min_x, max_x), random.uniform(min_y, max_y))
+        if poly.contains(p):
+            return p
+
+
+def search_pois(request):
+    query = request.GET.get("q", "").strip()
+
+    custom_qs = CustomPOI.objects.all()
+    point_qs = OsmPoint.objects.all()
+    polygon_qs = OsmPolygon.objects.all()
+
+    if query:
+        custom_qs = custom_qs.filter(name__icontains=query)
+        point_qs = point_qs.filter(name__icontains=query)
+        polygon_qs = polygon_qs.filter(name__icontains=query)
+
+    features = []
+
+    # --- CUSTOM POIs ---
+    for poi in custom_qs:
+        if poi.coordinates:
+            pt = poi.coordinates
+        elif poi.osm_object:
+            try:
+                poly = OsmPolygon.objects.get(osm_id=poi.osm_object)
+                pt = random_point_in_polygon(poly.way)
+            except:
+                continue
+        else:
+            continue
+
+        features.append(
+            {
+                "type": "Feature",
+                "geometry": {"type": "Point", "coordinates": [pt.x, pt.y]},
+                "properties": {
+                    "poi_id": poi.poi_id,
+                    "name": poi.name,
+                    "source": "custom",
+                },
+            }
+        )
+
+    # --- OSM POINTS ---
+    for p in point_qs:
+        if not p.way:
+            continue
+        features.append(
+            {
+                "type": "Feature",
+                "geometry": {"type": "Point", "coordinates": [p.way.x, p.way.y]},
+                "properties": {
+                    "osm_id": p.osm_id,
+                    "name": p.name,
+                    "source": "osm_point",
+                },
+            }
+        )
+
+    # --- OSM POLYGONS → convert to random interior point ---
+    for poly in polygon_qs:
+        if not poly.way:
+            continue
+        pt = random_point_in_polygon(poly.way)
+
+        features.append(
+            {
+                "type": "Feature",
+                "geometry": {"type": "Point", "coordinates": [pt.x, pt.y]},
+                "properties": {
+                    "osm_id": poly.osm_id,
+                    "name": poly.name,
+                    "source": "osm_polygon",
+                },
+            }
+        )
+
+    return JsonResponse({"type": "FeatureCollection", "features": features})
