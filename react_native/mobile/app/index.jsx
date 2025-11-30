@@ -56,6 +56,8 @@ export default function App() {
   const [customPOIs, setCustomPOIs] = useState([]);
   const [geoResults, setGeoResults] = useState([]);
   const [heading, setHeading] = useState(0);
+  const [routeSteps, setRouteSteps] = useState([]);
+
 
   const router = useRouter();
 
@@ -136,6 +138,34 @@ export default function App() {
     };
     fetchPOIs();
   }, []);
+  // Handles user pressing "GO" on a route
+  const handleRouteGo = (route, skipSteps = false) => {
+    if (!selectedPOI) return;
+
+    const destinationName = selectedPOI.name; // Use the POI's name
+
+    // Option to go directly to destination reached page
+    // Passes destination name and route time with params
+    if (skipSteps) {
+      router.push({
+        pathname: '/DestinationReached',
+        params: { name: destinationName, time: route.time },
+      });
+    }
+    // Option to go to navigation page
+    else {
+      router.push({
+        pathname: '/StepByStepNavigator',
+        params: {
+          steps: JSON.stringify(item.steps),
+          route: JSON.stringify(item.geometry), // <-- add route coordinates
+          destination: selectedPOI.name,
+          time: item.time,
+        },
+      });
+
+    }
+  };
 
   // Keyboard snap behavior
   useEffect(() => {
@@ -179,30 +209,27 @@ export default function App() {
   };
 
   // --- Route Fetching ---
-  const getRouteFromHeigit = async (start, end) => {
+  const getWalkingRoute = async (start, end) => {
     try {
-      const response = await fetch("https://api.openrouteservice.org/v2/directions/foot-walking", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: ORS_API_KEY,
-        },
-        body: JSON.stringify({
-          coordinates: [
-            [start.longitude, start.latitude],
-            [end.longitude, end.latitude],
-          ],
-        }),
-      });
+      const url = `${BACKEND_URL}api/walking-directions/?start_lat=${start.latitude}&start_lon=${start.longitude}&end_lat=${end.latitude}&end_lon=${end.longitude}`;
+      const res = await fetch(url);
+      const data = await res.json();
 
-      const data = await response.json();
-      if (data?.routes?.[0]?.geometry) return data.routes[0].geometry;
-      return null;
-    } catch (error) {
-      console.error("Error fetching route:", error);
+      if (!data.route_geometry) return null;
+
+      return {
+        geometry: data.route_geometry, // already in {latitude, longitude}
+        steps: data.steps,
+        total_time: data.total_time,
+        total_distance: data.total_distance,
+      };
+    } catch (err) {
+      console.error("Error fetching walking route:", err);
       return null;
     }
   };
+
+
 
   const decodePolyline = (encoded) => {
     let points = [];
@@ -223,26 +250,28 @@ export default function App() {
   };
 
   // Fetch route when location or POI changes
-  useEffect(() => {
-    const fetchRoute = async () => {
-      if (!currentLocation || !selectedPOI?.coordinate) return;
+  // useEffect(() => {
+  //   const fetchRoute = async () => {
+  //     if (!currentLocation || !selectedPOI?.coordinate) return;
 
-      const geometry = await getRouteFromHeigit(currentLocation, selectedPOI.coordinate);
-      if (!geometry) return;
+  //     const routeData = await getWalkingRoute(currentLocation, selectedPOI.coordinate);
+  //     if (!routeData) return;
 
-      const decoded = decodePolyline(geometry);
-      setDummyRoutes([decoded]);
+  //     setDummyRoutes([routeData.geometry]); // for Polyline
+  //     setRouteSteps(routeData.steps);       // for directions bottom sheet
 
-      if (mapRef.current && decoded.length > 0) {
-        mapRef.current.fitToCoordinates(decoded, {
-          edgePadding: { top: 80, right: 40, bottom: 400, left: 40 },
-          animated: true,
-        });
-      }
-    };
+  //     if (mapRef.current && routeData.geometry.length > 0) {
+  //       mapRef.current.fitToCoordinates(routeData.geometry, {
+  //         edgePadding: { top: 80, right: 40, bottom: 400, left: 40 },
+  //         animated: true,
+  //       });
+  //     }
+  //   };
 
-    fetchRoute();
-  }, [currentLocation, selectedPOI]);
+  //   fetchRoute();
+  // }, [currentLocation, selectedPOI]);
+
+
 
   // --- Handle POI selection ---
   const handlePoiClick = (e) => {
@@ -255,14 +284,34 @@ export default function App() {
   const handleClearPOI = () => {
     setSelectedPOI(null);
     setViewMode('search');
-    setDummyRoutes([]);
+    setDummyRoutes([]); // Clear polyline from map
+    setRouteSteps([]);
     bottomSheetRef.current?.snapToIndex(1);
   };
 
-  const handleGoNow = () => {
-    setViewMode('directions');
+
+  const handleGoNow = async () => {
+    if (!selectedPOI || !currentLocation) return;
+
+    // Fetch walking route
+    const routeData = await getWalkingRoute(currentLocation, selectedPOI.coordinate);
+    if (!routeData) return;
+
+    setDummyRoutes([routeData.geometry]); // Display on map
+    setRouteSteps(routeData.steps);       // For bottom sheet directions
+
+    // Fit map to route
+    if (mapRef.current && routeData.geometry.length > 0) {
+      mapRef.current.fitToCoordinates(routeData.geometry, {
+        edgePadding: { top: 80, right: 40, bottom: 400, left: 40 },
+        animated: true,
+      });
+    }
+
+    setViewMode('directions'); // Switch bottom sheet to directions view
     bottomSheetRef.current?.snapToIndex(2);
   };
+
 
   const handleSeeInfo = () => console.log('See Building Info pressed');
 
@@ -442,27 +491,37 @@ export default function App() {
 
                     {/* List of routes  */}
                     <FlatList
-                      data={routes}
+                      data={[{
+                        id: '1',
+                        name: 'Recommended Route',
+                        time: routeSteps.length ? `${Math.round(routeSteps.reduce((a, s) => a + parseFloat(s.distance), 0) / 80)} min` : 'N/A', // optional estimate
+                        steps: routeSteps,
+                      }]}
                       keyExtractor={(item) => item.id}
                       renderItem={({ item }) => (
                         <View style={styles.routeItem}>
                           <View style={{ flex: 1 }}>
                             <Text style={styles.routeType}>{item.name}</Text>
-                            <Text style={styles.routeDetails}>
-                              {item.time} • {item.distance}
-                            </Text>
+                            <Text style={styles.routeDetails}>Time: {item.time}</Text>
                           </View>
+
                           <TouchableOpacity
                             style={styles.routeGoButton}
-                            onPress={() => handleRouteGo(item)}
+                            onPress={() => {
+                              router.push({
+                                pathname: '/StepByStepNavigator',
+                                params: { steps: JSON.stringify(item.steps), destination: selectedPOI.name },
+                              });
+                            }}
                           >
-                            <Text style={styles.routeGoButtonText}>Go</Text>
+                            <Text style={styles.routeGoButtonText}>Go Now</Text>
                           </TouchableOpacity>
-
-
                         </View>
                       )}
                     />
+
+
+
                   </>
                 )}
               </BottomSheetView>

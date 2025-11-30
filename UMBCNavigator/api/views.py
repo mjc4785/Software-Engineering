@@ -13,6 +13,15 @@ from django.contrib.gis.geos import Point, GEOSGeometry, Polygon, MultiPolygon
 from django.db import connection
 import json
 
+from pathlib import Path
+import os
+from dotenv import load_dotenv  # <--- Import this
+
+# Load environment variables from .env file
+load_dotenv()
+
+ORS_API_KEY = os.getenv("ORS_KEY")
+
 
 @api_view(["GET"])
 def get_route(request):
@@ -31,6 +40,87 @@ def get_route(request):
 
 def test_endpoint(request):
     return Response({"message": "Hello from Django!"})
+
+
+# views.py
+import json
+import requests
+from django.http import JsonResponse
+from django.conf import settings  # Assuming you put your key in settings.py
+
+
+def get_walking_directions(request):
+    # 1. Get coordinates from the request URL parameters
+    start_lat = request.GET.get("start_lat")
+    start_lon = request.GET.get("start_lon")
+    end_lat = request.GET.get("end_lat")
+    end_lon = request.GET.get("end_lon")
+
+    # start_lat = 39.25431410070744
+    # start_lon = -76.7133101777004
+    # end_lat = 39.256981310658794
+    # end_lon = -76.7069603775125
+
+    if not all([start_lat, start_lon, end_lat, end_lon]):
+        return JsonResponse({"error": "Missing coordinates"}, status=400)
+
+    # 2. Call OpenRouteService (Server-side)
+    # Move your ORS_API_KEY to your Django settings or .env file!
+    api_key = ORS_API_KEY
+
+    url = "https://api.openrouteservice.org/v2/directions/foot-walking/geojson"
+    headers = {"Authorization": api_key, "Content-Type": "application/json"}
+    body = {
+        "coordinates": [
+            [float(start_lon), float(start_lat)],
+            [float(end_lon), float(end_lat)],
+        ],
+        "instructions": True,  # We need the text instructions
+        "language": "en",
+    }
+
+    try:
+        response = requests.post(url, json=body, headers=headers)
+        data = response.json()
+
+        # 3. Parse and Clean the Data
+        feature = data["features"][0]
+
+        # Extract the raw geometry (coordinates for the blue line)
+        # ORS GeoJSON is [lon, lat], React Native Maps needs {latitude, longitude}
+        raw_coords = feature["geometry"]["coordinates"]
+        formatted_coords = [{"latitude": c[1], "longitude": c[0]} for c in raw_coords]
+
+        # Extract segments (the text instructions)
+        segments = feature["properties"]["segments"][0]
+        steps_raw = segments["steps"]
+
+        formatted_steps = []
+        for index, step in enumerate(steps_raw):
+            formatted_steps.append(
+                {
+                    "id": index,
+                    "text": step["instruction"],
+                    "distance": f"{step['distance']}m",
+                    # way_points tells us which part of the coordinate array belongs to this step
+                    # e.g., [0, 10] means coords[0] to coords[10]
+                    "way_points": step["way_points"],
+                }
+            )
+
+        # 4. Return clean JSON to the app
+        return JsonResponse(
+            {
+                "route_geometry": formatted_coords,
+                "steps": formatted_steps,
+                "total_time": f"{round(segments['duration'] / 60)} min",
+                "total_distance": f"{round(segments['distance'])} m",
+            }
+        )
+
+    except Exception as e:
+        print(f"Error fetching directions: {e}")
+        return JsonResponse({"error": "Failed to fetch directions"}, status=500)
 
 
 # ---------------------------

@@ -17,7 +17,13 @@ Including another URLconf
 
 from django.contrib import admin
 from django.urls import path
-from api.views import test_endpoint, get_route, pois_geojson, search_pois
+from api.views import (
+    test_endpoint,
+    get_route,
+    pois_geojson,
+    search_pois,
+    get_walking_directions,
+)
 
 urlpatterns = [
     path("admin/", admin.site.urls),
@@ -25,4 +31,5 @@ urlpatterns = [
     path("api/route/", get_route, name="get_route"),
     path("api/poi-geojson/", pois_geojson),
     path("api/search-pois/", search_pois),
+    path("api/walking-directions/", get_walking_directions),
 ]

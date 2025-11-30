@@ -6,44 +6,19 @@ import MapView, { Polyline, UrlTile } from 'react-native-maps';
 
 export default function NavigationScreen() {
     const router = useRouter();
-    const { name, time } = useLocalSearchParams();
+    const { steps: stepsParam, route: routeParam, destination, time } = useLocalSearchParams();
+
+    const steps = stepsParam ? JSON.parse(stepsParam) : [];
+    const routeCoords = routeParam ? JSON.parse(routeParam) : [];
+
     const [currentStep, setCurrentStep] = useState(0);
     const mapRef = useRef(null);
 
-    const steps = [
-        { id: 1, text: 'Head north on Main Walkway', distance: '100m' },
-        { id: 2, text: 'Turn right at Library Lawn', distance: '200m' },
-        { id: 3, text: 'Continue straight for 200m', distance: '200m' },
-        { id: 4, text: 'Destination will be on your left', distance: '50m' },
-    ];
-
-    const dummyRoutes = [
-        { latitude: 39.2548, longitude: -76.7097 },
-        { latitude: 39.2552, longitude: -76.7085 },
-        { latitude: 39.2560, longitude: -76.7070 },
-        { latitude: 39.2565, longitude: -76.7065 },
-        { latitude: 39.2570, longitude: -76.7060 },
-    ];
-
-    const computeBearing = (start, end) => {
-        const lat1 = (start.latitude * Math.PI) / 180;
-        const lon1 = (start.longitude * Math.PI) / 180;
-        const lat2 = (end.latitude * Math.PI) / 180;
-        const lon2 = (end.longitude * Math.PI) / 180;
-        const dLon = lon2 - lon1;
-        const y = Math.sin(dLon) * Math.cos(lat2);
-        const x =
-            Math.cos(lat1) * Math.sin(lat2) -
-            Math.sin(lat1) * Math.cos(lat2) * Math.cos(dLon);
-        let brng = Math.atan2(y, x);
-        brng = (brng * 180) / Math.PI;
-        return (brng + 360) % 360;
-    };
-
+    // Animate map to current step
     useEffect(() => {
-        if (!mapRef.current || currentStep >= dummyRoutes.length - 1) return;
-        const start = dummyRoutes[currentStep];
-        const end = dummyRoutes[currentStep + 1];
+        if (!mapRef.current || currentStep >= routeCoords.length - 1) return;
+        const start = routeCoords[currentStep];
+        const end = routeCoords[currentStep + 1];
         mapRef.current.animateToRegion(
             {
                 latitude: (start.latitude + end.latitude) / 2,
@@ -53,14 +28,11 @@ export default function NavigationScreen() {
             },
             800
         );
-    }, [currentStep]);
+    }, [currentStep, routeCoords]);
 
     const handleNext = () => {
-        if (currentStep < steps.length - 1) {
-            setCurrentStep(currentStep + 1);
-        } else {
-            router.push({ pathname: '/DestinationReached', params: { name, time } });
-        }
+        if (currentStep < steps.length - 1) setCurrentStep(currentStep + 1);
+        else router.push({ pathname: '/DestinationReached', params: { name: destination, time } });
     };
 
     const handleBack = () => {
@@ -72,43 +44,44 @@ export default function NavigationScreen() {
             <MapView
                 ref={mapRef}
                 style={StyleSheet.absoluteFill}
-                initialRegion={{
-                    latitude: dummyRoutes[0].latitude,
-                    longitude: dummyRoutes[0].longitude,
-                    latitudeDelta: 0.01,
-                    longitudeDelta: 0.01,
-                }}
+                initialRegion={
+                    routeCoords.length > 0
+                        ? {
+                            latitude: routeCoords[0].latitude,
+                            longitude: routeCoords[0].longitude,
+                            latitudeDelta: 0.01,
+                            longitudeDelta: 0.01,
+                        }
+                        : { latitude: 0, longitude: 0, latitudeDelta: 0.01, longitudeDelta: 0.01 }
+                }
                 showsUserLocation
-                rotateEnabled
             >
-                <UrlTile
-                    urlTemplate="https://tile.openstreetmap.org/{z}/{x}/{y}.png"
-                    maximumZ={19}
-                />
-                <Polyline
-                    coordinates={dummyRoutes}
-                    strokeColor="#007AFF"
-                    strokeWidth={4}
-                />
-                {currentStep < dummyRoutes.length - 1 && (
-                    <Polyline
-                        coordinates={[
-                            dummyRoutes[currentStep],
-                            dummyRoutes[currentStep + 1],
-                        ]}
-                        strokeColor="#34C759"
-                        strokeWidth={6}
-                    />
+                <UrlTile urlTemplate="https://tile.openstreetmap.org/{z}/{x}/{y}.png" maximumZ={19} />
+                {routeCoords.length > 0 && (
+                    <>
+                        <Polyline coordinates={routeCoords} strokeColor="#007AFF" strokeWidth={4} />
+                        {currentStep < routeCoords.length - 1 && (
+                            <Polyline
+                                coordinates={[routeCoords[currentStep], routeCoords[currentStep + 1]]}
+                                strokeColor="#34C759"
+                                strokeWidth={6}
+                            />
+                        )}
+                    </>
                 )}
             </MapView>
 
-            {/* 🔹 Top panel below notch */}
+            {/* Top panel */}
             <View style={styles.topPanel}>
-                <Text style={styles.stepDistance}>{steps[currentStep].distance}</Text>
-                <Text style={styles.stepText}>{steps[currentStep].text}</Text>
-                <Text style={styles.stepCount}>
-                    Step {currentStep + 1} of {steps.length}
-                </Text>
+                {steps[currentStep] && (
+                    <>
+                        <Text style={styles.stepDistance}>{steps[currentStep].distance}</Text>
+                        <Text style={styles.stepText}>{steps[currentStep].text}</Text>
+                        <Text style={styles.stepCount}>
+                            Step {currentStep + 1} of {steps.length}
+                        </Text>
+                    </>
+                )}
                 <View style={styles.navigationButtons}>
                     <TouchableOpacity
                         style={[styles.arrowButton, currentStep === 0 && styles.disabledButton]}
@@ -123,10 +96,10 @@ export default function NavigationScreen() {
                 </View>
             </View>
 
-            {/* 🔹 Bottom panel */}
+            {/* Bottom panel */}
             <View style={styles.bottomPanel}>
                 <View style={styles.destinationInfo}>
-                    <Text style={styles.destinationName}>{name}</Text>
+                    <Text style={styles.destinationName}>{destination}</Text>
                     <Text style={styles.destinationTime}>ETA: {time}</Text>
                 </View>
                 <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
