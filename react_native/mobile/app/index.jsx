@@ -55,6 +55,7 @@ export default function App() {
   const [geoResults, setGeoResults] = useState([]);
   const [heading, setHeading] = useState(0);
   const [routeSteps, setRouteSteps] = useState([]);
+  const [menuOpen, setMenuOpen] = useState(false);
 
 
   const router = useRouter();
@@ -341,6 +342,34 @@ export default function App() {
             ))}
           </MapView>
 
+          <TouchableOpacity
+            style={styles.menuButton}
+            onPress={() => setMenuOpen(!menuOpen)}
+          >
+            <View style={styles.menuLine}/>
+            <View style={styles.menuLine}/>
+            <View style={styles.menuLine}/>
+          </TouchableOpacity>
+
+          {menuOpen && (
+            <View style={styles.menuContainer}>
+              <TouchableOpacity
+                style={styles.menuItem}
+                onPress={() => {
+                  setMenuOpen(false);
+                  router.push({
+                    pathname: '/Reporting',
+                    params: currentLocation ? {
+                      lat: currentLocation.latitude,
+                      lon: currentLocation.longitude,
+                    } : {}
+                  });
+                }}
+              >
+                <Text style={styles.menuItemText}>Report</Text>
+              </TouchableOpacity>
+            </View>
+          )}
 
           {/* Locate Me Button */}
           <Animated.View style={[styles.locateButton, locateMeStyle]}>
@@ -572,6 +601,24 @@ const styles = StyleSheet.create({
     backgroundColor: '#333',
     marginVertical: 2,
     borderRadius: 2,
+  },
+  menuItem: {
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+  },
+  menuContainer: {
+    position: 'absolute',
+    top: 50,
+    right: 20,
+    width: 150,
+    backgroundColor: '#fff',
+    borderRadius: 10,
+    paddingVertical: 6,
+    elevation: 8,
+  },
+  menuItemText: {
+    fontSize: 16,
+    color: '#007AFF',
   },
   closeButton: { position: 'absolute', top: 10, right: 20, zIndex: 10 },
   closeCircle: {
