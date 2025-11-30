@@ -25,11 +25,12 @@ import {
 // Enables/is requirement for @gorhom/bottom-sheet.
 import { GestureHandlerRootView } from 'react-native-gesture-handler'; // Enables enhanced gesture swiping.
 
-import MapView, { Polyline, UrlTile } from 'react-native-maps'; // For tile overlay map components and drawing route lines
+import MapView, { Marker, Polyline, UrlTile } from 'react-native-maps'; // For tile overlay map components and drawing route lines
 import { Host, Portal } from 'react-native-portalize'; // Allows BottomSheet to sit on top of MapView
 
 import * as Location from 'expo-location';
-
+import { Magnetometer } from 'expo-sensors'; // Expo's device sensor
+// import { MaterialIcons } from '@expo/vector-icons'; // Getting vector icon
 
 // Routing API key 
 const ORS_API_KEY = "eyJvcmciOiI1YjNjZTM1OTc4NTExMTAwMDFjZjYyNDgiLCJpZCI6IjJmM2NiNzU0ZjQ4NTQxYmJiODNmMTE0OTU4ZTdlODY0IiwiaCI6Im11cm11cjY0In0=";
@@ -53,8 +54,7 @@ export default function App() {
   const [searchResults, setSearchResults] = useState([])
   const [currentLocation, setCurrentLocation] = useState(null);     // State for tracking user's current location
   const [location, setLocation] = useState(null); // Start location (not necessarily the user's current location but can be)
-
-
+  const [heading, setHeading] = useState(0); // Tracking direction of device and initially starts at default (facing North)
 
   // hook to navigate between screens
   const router = useRouter();
@@ -89,6 +89,73 @@ export default function App() {
       console.error('Error getting location:', error);
     }
   };
+
+  // For getting phone's rotation
+  useEffect(() => {
+    // Tracking phone's position
+    let headingSub = null;
+    let magnetSub = null;
+
+    const startHeadingUpdates = async () => {
+      
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== "granted"){
+        console.log("Location permission not granted - heading updates disabled.");
+        return;
+      }
+
+      try{
+        headingSub = await Location.watchHeadingAsync((hdg) => {
+          const newHeading = hdg?.trueHeading ?? hdg?.magHeading ?? 0;
+          if (newHeading !== null){
+            setHeading(newHeading);
+          }
+        });
+        console.log("watchHeadingAsync active");
+        console.log("watchHeadingAsync head value", heading)
+      } catch (e) {
+        Magnetometer.setUpdateInterval(200);
+        magnetSub = Magnetometer.addListener(({ x, y, z }) => {
+          if (typeof x === 'number' && typeof y === 'number'){
+            let angle = Math.atan2(y, x) * (180 / Math.PI);
+            let headingDeg = (angle + 360) % 360;
+            setHeading(headingDeg);
+          }
+        });
+      }
+      console.log("current heading is", heading);
+    };
+    startHeadingUpdates();
+    return () => {
+      headingSub?.remove?.();
+      magnetSub?.remove?.();
+    };
+  }, []);
+
+  // To send information to backend
+  useEffect(() => {
+    const startTracking = async() => {
+      const { status }  = await Location.requestForegroundPermissionsAsync();
+      if(status !== 'granted'){
+        console.log('Location permission denied.')
+        return;
+      }
+
+      const subscription = await Location.watchPositionAsync(
+      {  
+        accuracy: Location.Accuracy.Highest,
+        timeInterval: 2000,
+        distanceInterval: 2,
+      },
+        (location) => {
+          setCurrentLocation(location.coords);
+          sendLocationToBackend(location.coords);
+        }
+      );
+      return () => subscription.remove();
+    };
+    startTracking();
+  }, []);
 
 	//
 	// MOST RECENT ADDITION 10/27/25
@@ -244,7 +311,7 @@ export default function App() {
     else {
       router.push({
         pathname: '/StepByStepNavigator',
-        params: { name: destinationName, time: route.time },
+        params: { name: destinationName, time: route.time, currentLat: currentLocation?.latitude.toString(), currentLng: currentLocation?.longitude.toString() },
       });
     }
   };
@@ -410,6 +477,49 @@ export default function App() {
                   strokeWidth={4}
                 />
               ))}
+            {currentLocation && (
+            <>
+              {/*Dot formatting*/}
+              {/* <Marker
+                coordinate={currentLocation}
+                anchor={{ x: 0.5, y: 0.5 }}
+                flat
+                tracksViewChanges={true}
+              >
+              <View
+                style={{
+                  width: 18,
+                  height: 18,
+                  borderRadius: 9,
+                  backgroundColor: "#4285F4",
+                  borderWidth: 2.5,
+                  borderColor: "#fff",
+                }}
+              />
+              </Marker> */}
+
+              {/*Directional cone formatting*/}
+              <Marker
+                coordinate={currentLocation}
+                anchor={{ x: 0.5, y: 0.5 }}
+                flat
+                rotation={heading}
+                tracksViewChanges={true}
+                style={{ zIndex: -1 }}
+              >
+              <View style={{
+                width: 0,
+                height: 0,
+                borderLeftWidth: 12,
+                borderRightWidth: 12,
+                borderTopWidth: 32,
+                borderLeftColor: "transparent",
+                borderRightColor: "transparent",
+                borderTopColor: "rgba(66,133,244,0.35)",
+              }} />
+              </Marker>
+              </>
+            )}
           </MapView>
 
           {/* Add Dummy POI / Clear Button */}

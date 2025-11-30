@@ -4,14 +4,14 @@ Description: This page shows the step-by-step directions shown while a user foll
 */
 
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-
+import * as Location from 'expo-location';
 
 export default function NavigationScreen() {
     const router = useRouter();
-    const { name, time } = useLocalSearchParams();
+    const { name, time, currentLat, currentLng } = useLocalSearchParams();
 
     const steps = [
         { id: 1, text: 'Take a right onto the path', distance: '730ft' },
@@ -21,6 +21,9 @@ export default function NavigationScreen() {
     ];
 
     const [currentStep, setCurrentStep] = useState(0);
+    const [userLocation, setUserLocation] = useState(
+        currentLat && currentLng ? {latitude: parseFloat(currentLat), longitude: parseFloat(currentLng)} : null
+    );
 
     const handleNext = () => {
         if (currentStep < steps.length - 1) {
