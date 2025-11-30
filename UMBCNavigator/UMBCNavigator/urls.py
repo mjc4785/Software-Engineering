@@ -17,11 +17,12 @@ Including another URLconf
 
 from django.contrib import admin
 from django.urls import path
-from api.views import test_endpoint
-from api.views import get_route
+from api.views import test_endpoint, get_route, pois_geojson, search_pois
 
 urlpatterns = [
     path("admin/", admin.site.urls),
     path("api/test/", test_endpoint),
     path("api/route/", get_route, name="get_route"),
+    path("api/poi-geojson/", pois_geojson),
+    path("api/search-pois/", search_pois),
 ]

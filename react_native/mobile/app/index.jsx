@@ -25,7 +25,7 @@ import {
 // Enables/is requirement for @gorhom/bottom-sheet.
 import { GestureHandlerRootView } from 'react-native-gesture-handler'; // Enables enhanced gesture swiping.
 
-import MapView, { Polyline, UrlTile } from 'react-native-maps'; // For tile overlay map components and drawing route lines
+import MapView, { Polyline, UrlTile, Marker } from 'react-native-maps'; // For tile overlay map components and drawing route lines
 import { Host, Portal } from 'react-native-portalize'; // Allows BottomSheet to sit on top of MapView
 
 import * as Location from 'expo-location';
@@ -33,6 +33,7 @@ import * as Location from 'expo-location';
 
 // Routing API key 
 const ORS_API_KEY = "eyJvcmciOiI1YjNjZTM1OTc4NTExMTAwMDFjZjYyNDgiLCJpZCI6IjJmM2NiNzU0ZjQ4NTQxYmJiODNmMTE0OTU4ZTdlODY0IiwiaCI6Im11cm11cjY0In0=";
+const BACKEND_URL = "https://fc7c58fe27c7.ngrok-free.app/"
 
 // Main React component
 export default function App() {
@@ -53,7 +54,8 @@ export default function App() {
   const [searchResults, setSearchResults] = useState([])
   const [currentLocation, setCurrentLocation] = useState(null);     // State for tracking user's current location
   const [location, setLocation] = useState(null); // Start location (not necessarily the user's current location but can be)
-
+  const [customPOIs, setCustomPOIs] = useState([]);
+  const [geoResults, setGeoResults] = useState([]);
 
 
   // hook to navigate between screens
@@ -159,31 +161,37 @@ export default function App() {
   //END OF MOST RECENT
 
   // Fetch matching locations from OpenStreetMap (Nominatim)
-  const searchPlaces = async (query) => {
-    if (!query) {
-      setSearchResults([]);
+  const searchPOIs = async (text) => {
+    setInputText(text);
+
+    if (!text) {
+      setGeoResults([]);
       return;
     }
 
     try {
-      const response = await fetch(
-        `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&viewbox=-76.7205,39.2619,-76.70003,39.2419&bounded=1`
-      );
-      const data = await response.json();
-      setSearchResults(data);
+      const res = await fetch(`${BACKEND_URL}api/search-pois/?q=${encodeURIComponent(text)}`);
+      const data = await res.json();
 
-      // Check if the data exists first
-      if (data.length > 0) {
-        const firstInd = data[0];
-        const lat = parseFloat(firstInd.lat);
-        const lon = parseFloat(firstInd.lon);
-        console.log("First result:", lat, lon);
-      } else {
-        console.warn("No search results found.");
-      }
-    } catch (error) {
-      console.error("Error fetching search results:", error);
+      // GeoJSON → simplified result list
+      const parsed = data.features.map((f, index) => ({
+        id: f.properties.poi_id || f.properties.osm_id || `feat-${index}`,
+        name: f.properties.name,
+        lat: f.geometry.coordinates[1],
+        lon: f.geometry.coordinates[0],
+      }));
+
+      setGeoResults(parsed);
+    } catch (e) {
+      console.error("Search error:", e);
     }
+  };
+
+
+  const fetchResults = async (text) => {
+    const res = await fetch(`${BASE_URL}/api/search-pois/?q=${text}`);
+    const data = await res.json();
+    setGeoJson(data);
   };
 
   // Function to send the user's current GPS coordinates to the backend server
@@ -249,6 +257,12 @@ export default function App() {
     }
   };
 
+  const clearSearch = () => {
+    setInputText("");
+    setGeoResults([]);
+    Keyboard.dismiss();
+  };
+
 
   // Keyboard snap behavior event listener
   useEffect(() => {
@@ -276,6 +290,28 @@ export default function App() {
     setViewMode('poi');
     bottomSheetRef.current?.snapToIndex(1);
   };
+
+  useEffect(() => {
+    const fetchPOIs = async () => {
+      try {
+        const res = await fetch(`${BACKEND_URL}api/poi-geojson/`);
+        const geojson = await res.json();
+
+        const parsed = geojson.features.map(f => ({
+          id: f.properties.poi_id,
+          name: f.properties.name,
+          latitude: f.geometry.coordinates[1],
+          longitude: f.geometry.coordinates[0],
+        }));
+
+        setCustomPOIs(parsed);
+      } catch (err) {
+        console.error("Error fetching POIs:", err);
+      }
+    };
+
+    fetchPOIs();
+  }, []);
 
   // Same behavior as above but for a dummy POI
   const handleAddDummyPOI = () => {
@@ -393,9 +429,31 @@ export default function App() {
             // Handle when a POI on the map is clicked
             onPoiClick={handlePoiClick}
             showsUserLocation={true}
-          // followsUserLocation={true} // This makes it so the user location is always focused- don't want this
+          // followsUserLocation={true} // This makes it so the user location is always focused- don't want this always
           >
+            {/* Render custom POIs from backend */}
+            {customPOIs.map(poi => (
+              <Marker
+                key={poi.id}
+                coordinate={{
+                  latitude: poi.latitude,
+                  longitude: poi.longitude,
+                }}
+                title={poi.name}
+                onPress={() => {
+                  setSelectedPOI({
+                    name: poi.name,
+                    coordinate: {
+                      latitude: poi.latitude,
+                      longitude: poi.longitude,
+                    }
+                  });
+                  setViewMode('poi');
+                  bottomSheetRef.current?.snapToIndex(1);
+                }}
+              />
 
+            ))}
             {/* Tile overlay using OSM's tile style */}
             <UrlTile
               urlTemplate="https://tile.openstreetmap.org/{z}/{x}/{y}.png"
@@ -466,44 +524,49 @@ export default function App() {
                 {/* Search input appears only in search mode */}
                 {viewMode === 'search' && (
                   <>
-                    <TextInput
-                      style={styles.searchInput}
-                      onChangeText={(text) => {
-                        setInputText(text);
-                        searchPlaces(text); // Trigger search as user types
-                      }}
-                      value={inputText}
-                      placeholder="Where would you like to go?"
-                      placeholderTextColor="#999"
-                    />
-                    <Text>Current input: {inputText}</Text>
+                    <View style={styles.searchContainer}>
+                      <TextInput
+                        style={styles.searchInput}
+                        value={inputText}
+                        onChangeText={searchPOIs}
+                        placeholder="Search POIs..."
+                      />
+
+                      {inputText.length > 0 && (
+                        <TouchableOpacity onPress={clearSearch} style={styles.clearButton}>
+                          <Text style={styles.clearButtonText}>×</Text>
+                        </TouchableOpacity>
+                      )}
+                    </View>
 
                     <FlatList
-                      data={searchResults}
-                      keyExtractor={(item) => item.place_id.toString()}
+                      data={geoResults}
+                      keyExtractor={(item) => item.id.toString()}
+                      keyboardShouldPersistTaps="handled"
                       renderItem={({ item }) => (
                         <TouchableOpacity
-                          style={{
-                            paddingVertical: 10,
-                            borderBottomWidth: 1,
-                            borderBottomColor: "#eee",
-                          }}
+                          style={styles.searchItem}
                           onPress={() => {
-                            const coordinate = {
-                              latitude: parseFloat(item.lat),
-                              longitude: parseFloat(item.lon),
-                            };
-                            setSelectedPOI({ name: item.display_name, coordinate });
+                            // zoom map and select POI
+                            const coord = { latitude: item.lat, longitude: item.lon };
+
+                            setSelectedPOI({ name: item.name, coordinate: coord });
                             setViewMode("poi");
+
+                            mapRef.current?.animateToRegion({
+                              ...coord,
+                              latitudeDelta: 0.002,
+                              longitudeDelta: 0.002,
+                            });
+
                             bottomSheetRef.current?.snapToIndex(1);
-                            setSearchResults([]);
-                            setInputText("");
                           }}
                         >
-                          <Text style={{ fontSize: 14 }}>{item.display_name}</Text>
+                          <Text style={styles.searchItemText}>{item.name}</Text>
                         </TouchableOpacity>
                       )}
                     />
+
                   </>
                 )}
 
@@ -591,18 +654,9 @@ const styles = StyleSheet.create({
   handleIndicator: { backgroundColor: '#ccc' },
   sheetContent: { flex: 1, padding: 20 },
   sheetTitle: { fontSize: 18, fontWeight: 'bold', marginBottom: 12 },
-  searchInput: {
-    width: '100%',
-    height: 40,
-    borderRadius: 8,
-    borderColor: '#ccc',
-    borderWidth: 1,
-    paddingHorizontal: 10,
-    backgroundColor: '#fff',
-  },
   poiContainer: { marginTop: 10, alignItems: 'center' },
-  poiLabel: { fontSize: 14, color: '#666' },
-  poiName: { fontSize: 16, fontWeight: 'bold', color: '#222', marginTop: 4, marginBottom: 20 },
+  poiLabel: { fontSize: 12, color: '#666' },
+  poiName: { fontSize: 12, fontWeight: 'bold', color: '#222', marginTop: 4, marginBottom: 20 },
   actionButtonsContainer: { flexDirection: 'row', justifyContent: 'space-between', width: '100%' },
   actionButton: { paddingVertical: 12, borderRadius: 8, alignItems: 'center' },
   infoButton: { flex: 2, backgroundColor: '#f1f097ff', marginRight: 8 },
@@ -693,6 +747,41 @@ const styles = StyleSheet.create({
     fontWeight: '600',
 
   },
-
+  searchItem: {
+    paddingVertical: 12,
+    paddingHorizontal: 15,
+    borderBottomWidth: 1,
+    borderColor: "#eee",
+  },
+  searchItemText: {
+    fontSize: 16,
+  },
+  searchContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#fff",
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    marginHorizontal: 10,
+    marginTop: 10,
+  },
+  searchInput: {
+    width: '100%',
+    height: 40,
+    borderRadius: 8,
+    borderColor: '#464646ff',
+    borderWidth: 1,
+    paddingHorizontal: 10,
+    backgroundColor: '#fff',
+  },
+  clearButton: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+  },
+  clearButtonText: {
+    fontSize: 20,
+    fontWeight: "300",
+  },
 
 });
