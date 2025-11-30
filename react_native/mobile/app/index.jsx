@@ -25,7 +25,7 @@ import {
 // Enables/is requirement for @gorhom/bottom-sheet.
 import { GestureHandlerRootView } from 'react-native-gesture-handler'; // Enables enhanced gesture swiping.
 
-import MapView, { Polyline, UrlTile, Marker } from 'react-native-maps'; // For tile overlay map components and drawing route lines
+import MapView, { Marker, Polyline, UrlTile } from 'react-native-maps'; // For tile overlay map components and drawing route lines
 import { Host, Portal } from 'react-native-portalize'; // Allows BottomSheet to sit on top of MapView
 
 import * as Location from 'expo-location';
@@ -33,7 +33,7 @@ import * as Location from 'expo-location';
 
 // Routing API key 
 const ORS_API_KEY = "eyJvcmciOiI1YjNjZTM1OTc4NTExMTAwMDFjZjYyNDgiLCJpZCI6IjJmM2NiNzU0ZjQ4NTQxYmJiODNmMTE0OTU4ZTdlODY0IiwiaCI6Im11cm11cjY0In0=";
-const BACKEND_URL = "https://fc7c58fe27c7.ngrok-free.app/"
+const BACKEND_URL = "https://e4228981bce1.ngrok-free.app/"
 
 // Main React component
 export default function App() {
@@ -469,16 +469,6 @@ export default function App() {
               />
             ))}
           </MapView>
-
-          {/* Add Dummy POI / Clear Button */}
-          <TouchableOpacity
-            style={styles.button}
-            onPress={selectedPOI ? handleClearPOI : handleAddDummyPOI}
-          >
-            <Text style={styles.buttonText}>
-              {selectedPOI ? 'Clear POI' : 'Add Dummy POI'}
-            </Text>
-          </TouchableOpacity>
 
           <TouchableOpacity
             style={[styles.button, { bottom: 200, backgroundColor: '#34C759' }]}
