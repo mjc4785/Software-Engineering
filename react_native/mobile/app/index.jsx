@@ -38,7 +38,7 @@ const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
 // Routing API key 
 const ORS_API_KEY = "YOUR_ORS_KEY";
-const BACKEND_URL = "https://e4228981bce1.ngrok-free.app/"
+const BACKEND_URL = "https://be37ce20dcc5.ngrok-free.app/"
 
 export default function App() {
   const bottomSheetRef = useRef(null);
@@ -108,6 +108,11 @@ export default function App() {
         latitudeDelta: 0.005,
         longitudeDelta: 0.005,
       });
+    }
+
+    // make sure we stay in search mode if geoResults exist
+    if (geoResults.length > 0) {
+      setViewMode('search');
     }
   };
 
@@ -325,16 +330,141 @@ export default function App() {
         <Portal>
           <BottomSheet
             ref={bottomSheetRef}
-            index={1}
+            index={1} // starting snap index
             snapPoints={snapPoints}
             enablePanDownToClose={false}
             handleIndicatorStyle={styles.handleIndicator}
             backgroundStyle={styles.bottomSheetBackground}
             animatedPosition={animatedSheetPosition}
           >
-            <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
+            {/* Keyboard safe bottom sheet */}
+            <KeyboardAvoidingView
+              behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+              style={{ flex: 1 }}
+            >
               <BottomSheetView style={styles.sheetContent}>
-                {/* Render search, POI, and directions views... same as before */}
+                {/* Close/X button appears in poi and directions view (but not search view) */}
+                {(viewMode === 'poi' || viewMode === 'directions') && (
+                  <TouchableOpacity style={styles.closeButton} onPress={handleClearPOI}>
+                    <View style={styles.closeCircle}>
+                      <Text style={styles.closeButtonText}>×</Text>
+                    </View>
+                  </TouchableOpacity>
+                )}
+
+                {/* Search input appears only in search mode */}
+                {viewMode === 'search' && (
+                  <>
+                    <View style={styles.searchContainer}>
+                      <TextInput
+                        style={styles.searchInput}
+                        value={inputText}
+                        onChangeText={searchPOIs}
+                        placeholder="Search POIs..."
+                      />
+
+                      {inputText.length > 0 && (
+                        <TouchableOpacity onPress={clearSearch} style={styles.clearButton}>
+                          <Text style={styles.clearButtonText}>×</Text>
+                        </TouchableOpacity>
+                      )}
+                    </View>
+
+                    <FlatList
+                      data={geoResults}
+                      keyExtractor={(item) => item.id.toString()}
+                      keyboardShouldPersistTaps="handled"
+                      renderItem={({ item }) => (
+                        <TouchableOpacity
+                          style={styles.searchItem}
+                          onPress={() => {
+                            // zoom map and select POI
+                            const coord = { latitude: item.lat, longitude: item.lon };
+
+                            setSelectedPOI({ name: item.name, coordinate: coord });
+                            setViewMode("poi");
+
+                            mapRef.current?.animateToRegion({
+                              ...coord,
+                              latitudeDelta: 0.002,
+                              longitudeDelta: 0.002,
+                            });
+
+                            bottomSheetRef.current?.snapToIndex(1);
+                          }}
+                        >
+                          <Text style={styles.searchItemText}>{item.name}</Text>
+                        </TouchableOpacity>
+                      )}
+                    />
+
+                  </>
+                )}
+
+                {/* Shows the POI info + buttons */}
+                {viewMode === 'poi' && selectedPOI && (
+                  <>
+                    <Text style={styles.sheetTitle}>Building Info</Text>
+                    <View style={styles.poiContainer}>
+                      <Text style={styles.poiLabel}>Selected POI:</Text>
+                      <Text style={styles.poiName}>{selectedPOI.name}</Text>
+
+                      <View style={styles.actionButtonsContainer}>
+                        {/* See building info button */}
+                        <TouchableOpacity
+                          style={[styles.actionButton, styles.infoButton]}
+                          onPress={handleSeeInfo}
+                        >
+                          <Text style={[styles.actionButtonText, { color: '#000' }]}>
+                            See Building Info
+                          </Text>
+                        </TouchableOpacity>
+                        {/* Go now button */}
+                        <TouchableOpacity
+                          style={[styles.actionButton, styles.goButton]}
+                          onPress={handleGoNow}
+                        >
+                          <Text style={styles.actionButtonText}>Go Now</Text>
+                        </TouchableOpacity>
+                      </View>
+                    </View>
+                  </>
+                )}
+
+                {/* Directions view- shows routes to selected POI */}
+                {viewMode === 'directions' && selectedPOI && (
+                  <>
+                    <Text style={styles.sheetTitle}>Directions</Text>
+                    <View style={styles.directionBox}>
+                      <Text style={styles.directionText}>From: Current Location</Text>
+                      <Text style={styles.directionText}>To: {selectedPOI.name}</Text>
+                    </View>
+
+                    {/* List of routes  */}
+                    <FlatList
+                      data={routes}
+                      keyExtractor={(item) => item.id}
+                      renderItem={({ item }) => (
+                        <View style={styles.routeItem}>
+                          <View style={{ flex: 1 }}>
+                            <Text style={styles.routeType}>{item.name}</Text>
+                            <Text style={styles.routeDetails}>
+                              {item.time} • {item.distance}
+                            </Text>
+                          </View>
+                          <TouchableOpacity
+                            style={styles.routeGoButton}
+                            onPress={() => handleRouteGo(item)}
+                          >
+                            <Text style={styles.routeGoButtonText}>Go</Text>
+                          </TouchableOpacity>
+
+
+                        </View>
+                      )}
+                    />
+                  </>
+                )}
               </BottomSheetView>
             </KeyboardAvoidingView>
           </BottomSheet>
