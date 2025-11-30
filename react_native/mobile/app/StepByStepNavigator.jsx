@@ -3,6 +3,10 @@ import { useEffect, useRef, useState } from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import MapView, { Polyline, UrlTile } from 'react-native-maps';
+import * as Location from 'expo-location';
+
+import HeadingPuck from '../components/HeadingPuck';
+const HEADING_SHADOW = true; // if true, show custom HeadingPuck; if false, show default blue dot
 
 const BACKEND_URL = "https://be37ce20dcc5.ngrok-free.app/";
 
@@ -14,6 +18,42 @@ export default function StepByStepNavigator() {
     const [steps, setSteps] = useState([]);
     const [currentStep, setCurrentStep] = useState(0);
     const mapRef = useRef(null);
+    const [currentLocation, setCurrentLocation] = useState(null);
+    const [heading, setHeading] = useState(0);
+
+    useEffect(() => {
+        let locationSub;
+        let headingSub;
+
+        const startTracking = async () => {
+            const { status } = await Location.requestForegroundPermissionsAsync();
+            if (status !== 'granted') return;
+
+            // Track position
+            locationSub = await Location.watchPositionAsync(
+                { accuracy: Location.Accuracy.Highest, timeInterval: 500, distanceInterval: 0 },
+                (pos) => {
+                    setCurrentLocation({
+                        latitude: pos.coords.latitude,
+                        longitude: pos.coords.longitude,
+                    });
+                }
+            );
+
+            // Track heading
+            headingSub = await Location.watchHeadingAsync((hdg) => {
+                setHeading(hdg.trueHeading ?? hdg.magHeading ?? 0);
+            });
+        };
+
+        startTracking();
+
+        return () => {
+            locationSub?.remove();
+            headingSub?.remove();
+        };
+    }, []);
+
 
     // Fetch route from backend on mount
     useEffect(() => {
@@ -92,7 +132,11 @@ export default function StepByStepNavigator() {
 
     return (
         <SafeAreaView style={styles.safeContainer} edges={['right', 'left']}>
-            <MapView ref={mapRef} style={StyleSheet.absoluteFill} showsUserLocation>
+            <MapView
+                ref={mapRef}
+                style={StyleSheet.absoluteFill}
+                showsUserLocation={!HEADING_SHADOW} // show default blue dot if HEADING_SHADOW is false
+            >
                 <UrlTile urlTemplate="https://tile.openstreetmap.org/{z}/{x}/{y}.png" maximumZ={19} />
 
                 {/* Full route */}
@@ -100,7 +144,13 @@ export default function StepByStepNavigator() {
 
                 {/* Current step */}
                 {currentStepCoords.length > 0 && <Polyline coordinates={currentStepCoords} strokeColor="#34C759" strokeWidth={6} />}
+
+                {/* Conditionally render HeadingPuck */}
+                {HEADING_SHADOW && currentLocation && (
+                    <HeadingPuck coordinate={currentLocation} heading={heading} />
+                )}
             </MapView>
+
 
             {/* Top panel */}
             <View style={styles.topPanel}>
