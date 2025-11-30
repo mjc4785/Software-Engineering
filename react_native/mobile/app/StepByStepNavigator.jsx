@@ -4,35 +4,86 @@ import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import MapView, { Polyline, UrlTile } from 'react-native-maps';
 
-export default function NavigationScreen() {
+const BACKEND_URL = "https://be37ce20dcc5.ngrok-free.app/";
+
+export default function StepByStepNavigator() {
     const router = useRouter();
-    const { steps: stepsParam, route: routeParam, destination, time } = useLocalSearchParams();
+    const { startLat, startLon, endLat, endLon, destination } = useLocalSearchParams();
 
-    const steps = stepsParam ? JSON.parse(stepsParam) : [];
-    const routeCoords = routeParam ? JSON.parse(routeParam) : [];
-
+    const [routeGeometry, setRouteGeometry] = useState([]);
+    const [steps, setSteps] = useState([]);
     const [currentStep, setCurrentStep] = useState(0);
     const mapRef = useRef(null);
 
-    // Animate map to current step
+    // Fetch route from backend on mount
     useEffect(() => {
-        if (!mapRef.current || currentStep >= routeCoords.length - 1) return;
-        const start = routeCoords[currentStep];
-        const end = routeCoords[currentStep + 1];
-        mapRef.current.animateToRegion(
-            {
-                latitude: (start.latitude + end.latitude) / 2,
-                longitude: (start.longitude + end.longitude) / 2,
-                latitudeDelta: 0.002,
-                longitudeDelta: 0.002,
-            },
-            800
-        );
-    }, [currentStep, routeCoords]);
+        const fetchRoute = async () => {
+            try {
+                const url = `${BACKEND_URL}api/walking-directions/?start_lat=${startLat}&start_lon=${startLon}&end_lat=${endLat}&end_lon=${endLon}`;
+                const res = await fetch(url);
+                const data = await res.json();
+
+                if (data.route_geometry) {
+                    setRouteGeometry(data.route_geometry);
+                }
+                if (data.steps) {
+                    setSteps(data.steps);
+                }
+            } catch (err) {
+                console.error("Error fetching route:", err);
+            }
+        };
+
+        if (startLat && startLon && endLat && endLon) fetchRoute();
+    }, [startLat, startLon, endLat, endLon]);
+
+    // Fit full route on mount
+    useEffect(() => {
+        if (mapRef.current && routeGeometry.length > 0) {
+            mapRef.current.fitToCoordinates(routeGeometry, {
+                edgePadding: { top: 80, right: 40, bottom: 200, left: 40 },
+                animated: false,
+            });
+        }
+    }, [routeGeometry]);
+
+    const currentStepCoords =
+        steps[currentStep]?.way_points
+            ? routeGeometry.slice(
+                steps[currentStep].way_points[0],
+                steps[currentStep].way_points[1] + 1
+            )
+            : [];
+
+    // Fit map to current step
+    useEffect(() => {
+        if (mapRef.current && currentStepCoords.length > 0) {
+            // Calculate center of current step
+            const lats = currentStepCoords.map(p => p.latitude);
+            const lons = currentStepCoords.map(p => p.longitude);
+            const centerLat = (Math.min(...lats) + Math.max(...lats)) / 2;
+            const centerLon = (Math.min(...lons) + Math.max(...lons)) / 2;
+
+            // Adjust zoom (higher number = closer)
+            const zoomLevel = 16; // tweak this value as needed
+
+            mapRef.current.animateCamera({
+                center: { latitude: centerLat, longitude: centerLon },
+                zoom: zoomLevel,
+            }, { duration: 500 });
+        }
+    }, [currentStep, currentStepCoords]);
+
 
     const handleNext = () => {
-        if (currentStep < steps.length - 1) setCurrentStep(currentStep + 1);
-        else router.push({ pathname: '/DestinationReached', params: { name: destination, time } });
+        if (currentStep < steps.length - 1) {
+            setCurrentStep(currentStep + 1);
+        } else {
+            router.push({
+                pathname: '/DestinationReached',
+                params: { name: destination, time: steps.reduce((acc, s) => acc + parseFloat(s.distance), 0) },
+            });
+        }
     };
 
     const handleBack = () => {
@@ -41,34 +92,14 @@ export default function NavigationScreen() {
 
     return (
         <SafeAreaView style={styles.safeContainer} edges={['right', 'left']}>
-            <MapView
-                ref={mapRef}
-                style={StyleSheet.absoluteFill}
-                initialRegion={
-                    routeCoords.length > 0
-                        ? {
-                            latitude: routeCoords[0].latitude,
-                            longitude: routeCoords[0].longitude,
-                            latitudeDelta: 0.01,
-                            longitudeDelta: 0.01,
-                        }
-                        : { latitude: 0, longitude: 0, latitudeDelta: 0.01, longitudeDelta: 0.01 }
-                }
-                showsUserLocation
-            >
+            <MapView ref={mapRef} style={StyleSheet.absoluteFill} showsUserLocation>
                 <UrlTile urlTemplate="https://tile.openstreetmap.org/{z}/{x}/{y}.png" maximumZ={19} />
-                {routeCoords.length > 0 && (
-                    <>
-                        <Polyline coordinates={routeCoords} strokeColor="#007AFF" strokeWidth={4} />
-                        {currentStep < routeCoords.length - 1 && (
-                            <Polyline
-                                coordinates={[routeCoords[currentStep], routeCoords[currentStep + 1]]}
-                                strokeColor="#34C759"
-                                strokeWidth={6}
-                            />
-                        )}
-                    </>
-                )}
+
+                {/* Full route */}
+                {routeGeometry.length > 0 && <Polyline coordinates={routeGeometry} strokeColor="#007AFF" strokeWidth={4} />}
+
+                {/* Current step */}
+                {currentStepCoords.length > 0 && <Polyline coordinates={currentStepCoords} strokeColor="#34C759" strokeWidth={6} />}
             </MapView>
 
             {/* Top panel */}
@@ -77,17 +108,11 @@ export default function NavigationScreen() {
                     <>
                         <Text style={styles.stepDistance}>{steps[currentStep].distance}</Text>
                         <Text style={styles.stepText}>{steps[currentStep].text}</Text>
-                        <Text style={styles.stepCount}>
-                            Step {currentStep + 1} of {steps.length}
-                        </Text>
+                        <Text style={styles.stepCount}>Step {currentStep + 1} of {steps.length}</Text>
                     </>
                 )}
                 <View style={styles.navigationButtons}>
-                    <TouchableOpacity
-                        style={[styles.arrowButton, currentStep === 0 && styles.disabledButton]}
-                        onPress={handleBack}
-                        disabled={currentStep === 0}
-                    >
+                    <TouchableOpacity style={[styles.arrowButton, currentStep === 0 && styles.disabledButton]} onPress={handleBack} disabled={currentStep === 0}>
                         <Text style={styles.arrowText}>←</Text>
                     </TouchableOpacity>
                     <TouchableOpacity style={styles.arrowButton} onPress={handleNext}>
@@ -100,7 +125,6 @@ export default function NavigationScreen() {
             <View style={styles.bottomPanel}>
                 <View style={styles.destinationInfo}>
                     <Text style={styles.destinationName}>{destination}</Text>
-                    <Text style={styles.destinationTime}>ETA: {time}</Text>
                 </View>
                 <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
                     <Text style={styles.backButtonText}>Exit Navigation</Text>
@@ -111,17 +135,14 @@ export default function NavigationScreen() {
 }
 
 const styles = StyleSheet.create({
-    safeContainer: {
-        flex: 1,
-        backgroundColor: '#e0f7fa',
-    },
+    safeContainer: { flex: 1, backgroundColor: '#e0f7fa' },
     topPanel: {
         position: 'absolute',
         top: 0,
         left: 0,
         right: 0,
         backgroundColor: '#e0f7fa',
-        paddingTop: 40, // extends below selfie camera
+        paddingTop: 40,
         paddingBottom: 12,
         paddingHorizontal: 20,
         alignItems: 'center',
@@ -151,7 +172,6 @@ const styles = StyleSheet.create({
     },
     disabledButton: { backgroundColor: '#ccc' },
     arrowText: { color: '#fff', fontSize: 20, fontWeight: '700' },
-
     bottomPanel: {
         position: 'absolute',
         bottom: 0,

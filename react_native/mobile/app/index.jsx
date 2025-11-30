@@ -36,9 +36,7 @@ const HEADING_SHADOW = true; // set false to use default map location indicator
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
-// Routing API key 
-const ORS_API_KEY = "YOUR_ORS_KEY";
-const BACKEND_URL = "https://be37ce20dcc5.ngrok-free.app/"
+const BACKEND_URL = "https://be37ce20dcc5.ngrok-free.app/" // Replace with your ngrok url. Make sure to add a trailing slash!!
 
 export default function App() {
   const bottomSheetRef = useRef(null);
@@ -248,29 +246,6 @@ export default function App() {
     }
     return points;
   };
-
-  // Fetch route when location or POI changes
-  // useEffect(() => {
-  //   const fetchRoute = async () => {
-  //     if (!currentLocation || !selectedPOI?.coordinate) return;
-
-  //     const routeData = await getWalkingRoute(currentLocation, selectedPOI.coordinate);
-  //     if (!routeData) return;
-
-  //     setDummyRoutes([routeData.geometry]); // for Polyline
-  //     setRouteSteps(routeData.steps);       // for directions bottom sheet
-
-  //     if (mapRef.current && routeData.geometry.length > 0) {
-  //       mapRef.current.fitToCoordinates(routeData.geometry, {
-  //         edgePadding: { top: 80, right: 40, bottom: 400, left: 40 },
-  //         animated: true,
-  //       });
-  //     }
-  //   };
-
-  //   fetchRoute();
-  // }, [currentLocation, selectedPOI]);
-
 
 
   // --- Handle POI selection ---
@@ -510,7 +485,13 @@ export default function App() {
                             onPress={() => {
                               router.push({
                                 pathname: '/StepByStepNavigator',
-                                params: { steps: JSON.stringify(item.steps), destination: selectedPOI.name },
+                                params: {
+                                  startLat: currentLocation.latitude,
+                                  startLon: currentLocation.longitude,
+                                  endLat: selectedPOI.coordinate.latitude,
+                                  endLon: selectedPOI.coordinate.longitude,
+                                  destination: selectedPOI.name,
+                                },
                               });
                             }}
                           >
