@@ -270,7 +270,7 @@ export default function App() {
     else {
       router.push({
         pathname: '/StepByStepNavigator',
-        params: { name: destinationName, time: route.time },
+        params: { name: destinationName, time: route.time, currentLoc: currentLocation },
       });
     }
   };

@@ -3,19 +3,18 @@ import { useEffect, useRef, useState } from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import MapView, { Polyline, UrlTile } from 'react-native-maps';
+import haversine from 'haversine';
+import * as Location from 'expo-location';
 
 export default function NavigationScreen() {
     const router = useRouter();
-    const { name, time } = useLocalSearchParams();
+    const { name, time, currentLoc } = useLocalSearchParams();
     const [currentStep, setCurrentStep] = useState(0);
     const mapRef = useRef(null);
-
-    const steps = [
-        { id: 1, text: 'Head north on Main Walkway', distance: '100m' },
-        { id: 2, text: 'Turn right at Library Lawn', distance: '200m' },
-        { id: 3, text: 'Continue straight for 200m', distance: '200m' },
-        { id: 4, text: 'Destination will be on your left', distance: '50m' },
-    ];
+    const parsedLoc = currentLoc ? JSON.parse(currentLoc) : null;
+    const [userLocation, setUserLocation] = useState(parsedLoc);
+    const [stepDistance, setStepDistance] = useState(null);
+    const [steps, setSteps] = useState([]);
 
     const dummyRoutes = [
         { latitude: 39.2548, longitude: -76.7097 },
@@ -24,6 +23,19 @@ export default function NavigationScreen() {
         { latitude: 39.2565, longitude: -76.7065 },
         { latitude: 39.2570, longitude: -76.7060 },
     ];
+
+    const stepDirections = [
+    { id: 1, text: 'Head north on Main Walkway', distance: '100m' },
+    { id: 2, text: 'Turn right at Library Lawn', distance: '200m' },
+    { id: 3, text: 'Continue straight for 200m', distance: '200m' },
+    { id: 4, text: 'Destination will be on your left', distance: '50m' },
+];
+
+    function distanceFeet(start, end){
+        if(!start || !end) return null;
+        const meters = haversine(start, end, {unit: "meter"});
+        return Math.round(meters * 3.28084);
+    }
 
     const computeBearing = (start, end) => {
         const lat1 = (start.latitude * Math.PI) / 180;
@@ -39,6 +51,106 @@ export default function NavigationScreen() {
         brng = (brng * 180) / Math.PI;
         return (brng + 360) % 360;
     };
+
+    const bearingToCardinal = (deg) => {
+        const cards = ['N','NNE','NE','ENE','E','ESE','SE','SSE','S','SSW','SW','WSW','W','WNW','NW','NNW'];
+        const idx = Math.round((deg % 360) / 22.5) % 16;
+        return cards[idx];
+    };
+
+    useEffect(() => {
+        const s = [];
+        for (let i = 0; i < dummyRoutes.length - 1; i++) {
+            const start = dummyRoutes[i];
+            const end = dummyRoutes[i + 1];
+            const distFt = distanceFeet(start, end);
+            const bearing = computeBearing(start, end);
+            const cardinal = bearingToCardinal(bearing);
+            // Instruction text
+            const text = i === 0
+                ? `Head ${cardinal} for ${distFt} ft`
+                : `Continue ${cardinal} for ${distFt} ft`;
+            s.push({
+                id: i + 1,
+                start,
+                end,
+                distanceFeet: distFt,
+                bearing,
+                text,
+            });
+        }
+        setSteps(s);
+    }, [/* runs once, route is static here; add deps if route changes */]);
+
+    const getClosestWaypointIndex = (loc) => {
+        if(!loc) return 0;
+        let bestIdx = 0;
+        let bestDist = Infinity;
+        for (let i = 0; i < dummyRoutes.length; i++) {
+            const d = distanceFeet(loc, dummyRoutes[i]);
+            if (d !== null && d < bestDist) {
+                bestDist = d;
+                bestIdx = i;
+            }
+        }
+        return bestIdx;
+    };
+
+    useEffect(() => {
+        let sub;
+        (async () => {
+            const {status} = await Location.requestForegroundPermissionsAsync();
+            if(status !== 'granted') return;
+
+            sub = await Location.watchPositionAsync(
+                {
+                    accuracy: Location.Accuracy.High,
+                    distanceInterval: 1,
+                },
+                (loc) => {
+                    const newLoc = {
+                        latitude: loc.coords.latitude,
+                        longitude: loc.coords.longitude,
+                    };
+                    setUserLocation(newLoc);
+
+                    const closestIdx = getClosestWaypointIndex(newLoc);
+                    const inferredStep = Math.max(0, Math.min(closestIdx - 1, dummyRoutes.length - 2));
+
+                    setCurrentStep((prev) => {
+                        if (inferredStep !== prev) {
+                            return inferredStep;
+                        }
+                        return prev;
+                    });
+
+                    // compute distance remaining to the end of current segment
+                    const segEnd = dummyRoutes[Math.min(inferredStep + 1, dummyRoutes.length - 1)];
+                    if (segEnd) {
+                        const distToSegEnd = distanceFeet(newLoc, segEnd);
+                        setStepDistance(distToSegEnd);
+                    }
+
+                    // Auto-advance if within threshold of the segment end
+                    const reachThreshold = 30;
+                    if (segEnd) {
+                        const distToSegEnd = distanceFeet(newLoc, segEnd);
+                        if (distToSegEnd !== null && distToSegEnd <= reachThreshold) {
+                            setCurrentStep((prev) => {
+                                const next = Math.min(prev + 1, dummyRoutes.length - 2);
+                                if (prev >= dummyRoutes.length - 2 && next === prev) {
+                                    router.push({ pathname: '/DestinationReached', params: { name, time } });
+                                    return prev;
+                                }
+                                return next;
+                            });
+                        }
+                    }
+                }
+            );
+        })();
+        return () => sub && sub.remove();
+    }, []);
 
     useEffect(() => {
         if (!mapRef.current || currentStep >= dummyRoutes.length - 1) return;
@@ -102,12 +214,15 @@ export default function NavigationScreen() {
                 )}
             </MapView>
 
-            {/* 🔹 Top panel below notch */}
             <View style={styles.topPanel}>
-                <Text style={styles.stepDistance}>{steps[currentStep].distance}</Text>
-                <Text style={styles.stepText}>{steps[currentStep].text}</Text>
+                <Text style={styles.stepDistance}>
+                    {stepDistance !== null ? `${stepDistance} ft` : 'Calculating...'}
+                </Text>
+                <Text style={styles.stepText}>
+                    {steps[currentStep]?.text ?? 'Calculating route...'}
+                </Text>
                 <Text style={styles.stepCount}>
-                    Step {currentStep + 1} of {steps.length}
+                    Step {Math.min(currentStep + 1, steps.length)} of {steps.length}
                 </Text>
                 <View style={styles.navigationButtons}>
                     <TouchableOpacity
@@ -123,7 +238,6 @@ export default function NavigationScreen() {
                 </View>
             </View>
 
-            {/* 🔹 Bottom panel */}
             <View style={styles.bottomPanel}>
                 <View style={styles.destinationInfo}>
                     <Text style={styles.destinationName}>{name}</Text>
