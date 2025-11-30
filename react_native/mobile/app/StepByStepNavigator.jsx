@@ -4,11 +4,13 @@ import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import MapView, { Polyline, UrlTile } from 'react-native-maps';
 import * as Location from 'expo-location';
+import haversine from 'haversine-distance';
 
 import HeadingPuck from '../components/HeadingPuck';
 const HEADING_SHADOW = true; // if true, show custom HeadingPuck; if false, show default blue dot
 
-const BACKEND_URL = "https://be37ce20dcc5.ngrok-free.app/";
+const BACKEND_URL = "https://1976b818c288.ngrok-free.app/";
+const OFF_ROUTE_THRESHOLD = 20; // meters
 
 export default function StepByStepNavigator() {
     const router = useRouter();
@@ -17,10 +19,13 @@ export default function StepByStepNavigator() {
     const [routeGeometry, setRouteGeometry] = useState([]);
     const [steps, setSteps] = useState([]);
     const [currentStep, setCurrentStep] = useState(0);
-    const mapRef = useRef(null);
     const [currentLocation, setCurrentLocation] = useState(null);
     const [heading, setHeading] = useState(0);
+    const mapRef = useRef(null);
 
+    // -----------------------------
+    // Location & Heading Tracking
+    // -----------------------------
     useEffect(() => {
         let locationSub;
         let headingSub;
@@ -29,7 +34,6 @@ export default function StepByStepNavigator() {
             const { status } = await Location.requestForegroundPermissionsAsync();
             if (status !== 'granted') return;
 
-            // Track position
             locationSub = await Location.watchPositionAsync(
                 { accuracy: Location.Accuracy.Highest, timeInterval: 500, distanceInterval: 0 },
                 (pos) => {
@@ -40,7 +44,6 @@ export default function StepByStepNavigator() {
                 }
             );
 
-            // Track heading
             headingSub = await Location.watchHeadingAsync((hdg) => {
                 setHeading(hdg.trueHeading ?? hdg.magHeading ?? 0);
             });
@@ -54,8 +57,9 @@ export default function StepByStepNavigator() {
         };
     }, []);
 
-
-    // Fetch route from backend on mount
+    // -----------------------------
+    // Fetch Initial Route
+    // -----------------------------
     useEffect(() => {
         const fetchRoute = async () => {
             try {
@@ -63,12 +67,8 @@ export default function StepByStepNavigator() {
                 const res = await fetch(url);
                 const data = await res.json();
 
-                if (data.route_geometry) {
-                    setRouteGeometry(data.route_geometry);
-                }
-                if (data.steps) {
-                    setSteps(data.steps);
-                }
+                if (data.route_geometry) setRouteGeometry(data.route_geometry);
+                if (data.steps) setSteps(data.steps);
             } catch (err) {
                 console.error("Error fetching route:", err);
             }
@@ -77,7 +77,9 @@ export default function StepByStepNavigator() {
         if (startLat && startLon && endLat && endLon) fetchRoute();
     }, [startLat, startLon, endLat, endLon]);
 
-    // Fit full route on mount
+    // -----------------------------
+    // Fit Map to Full Route
+    // -----------------------------
     useEffect(() => {
         if (mapRef.current && routeGeometry.length > 0) {
             mapRef.current.fitToCoordinates(routeGeometry, {
@@ -87,6 +89,9 @@ export default function StepByStepNavigator() {
         }
     }, [routeGeometry]);
 
+    // -----------------------------
+    // Current Step Coordinates
+    // -----------------------------
     const currentStepCoords =
         steps[currentStep]?.way_points
             ? routeGeometry.slice(
@@ -95,18 +100,17 @@ export default function StepByStepNavigator() {
             )
             : [];
 
-    // Fit map to current step
+    // -----------------------------
+    // Fit Map to Current Step
+    // -----------------------------
     useEffect(() => {
         if (mapRef.current && currentStepCoords.length > 0) {
-            // Calculate center of current step
             const lats = currentStepCoords.map(p => p.latitude);
             const lons = currentStepCoords.map(p => p.longitude);
             const centerLat = (Math.min(...lats) + Math.max(...lats)) / 2;
             const centerLon = (Math.min(...lons) + Math.max(...lons)) / 2;
 
-            // Adjust zoom (higher number = closer)
-            const zoomLevel = 16; // tweak this value as needed
-
+            const zoomLevel = 20; // tweak as needed
             mapRef.current.animateCamera({
                 center: { latitude: centerLat, longitude: centerLon },
                 zoom: zoomLevel,
@@ -114,7 +118,52 @@ export default function StepByStepNavigator() {
         }
     }, [currentStep, currentStepCoords]);
 
+    // -----------------------------
+    // Off-route Detection
+    // -----------------------------
+    const isOffRoute = (userLoc, routeCoords) => {
+        if (!routeCoords || routeCoords.length === 0) return false;
+        let minDistance = Infinity;
+        routeCoords.forEach((point) => {
+            const distance = haversine(userLoc, point);
+            if (distance < minDistance) minDistance = distance;
+        });
+        return minDistance > OFF_ROUTE_THRESHOLD;
+    };
 
+    const rerouteUser = async () => {
+        if (!currentLocation) return;
+        try {
+            const url = `${BACKEND_URL}api/walking-directions/?start_lat=${currentLocation.latitude}&start_lon=${currentLocation.longitude}&end_lat=${endLat}&end_lon=${endLon}`;
+            const res = await fetch(url);
+            const data = await res.json();
+
+            if (data.route_geometry) setRouteGeometry(data.route_geometry);
+            if (data.steps) setSteps(data.steps);
+            setCurrentStep(0);
+            console.log("Rerouted!");
+        } catch (err) {
+            console.error("Reroute failed:", err);
+        }
+    };
+
+    // -----------------------------
+    // Off-route Detection
+    // -----------------------------
+    useEffect(() => {
+        // Only check reroute if the user has started moving past the first step
+        if (currentLocation && routeGeometry.length > 0 && currentStep > 0) {
+            if (isOffRoute(currentLocation, routeGeometry)) {
+                console.log("User is off-route, rerouting...");
+                rerouteUser();
+            }
+        }
+    }, [currentLocation, currentStep]);
+
+
+    // -----------------------------
+    // Navigation Handlers
+    // -----------------------------
     const handleNext = () => {
         if (currentStep < steps.length - 1) {
             setCurrentStep(currentStep + 1);
@@ -130,29 +179,23 @@ export default function StepByStepNavigator() {
         if (currentStep > 0) setCurrentStep(currentStep - 1);
     };
 
+    // -----------------------------
+    // Render
+    // -----------------------------
     return (
         <SafeAreaView style={styles.safeContainer} edges={['right', 'left']}>
             <MapView
                 ref={mapRef}
                 style={StyleSheet.absoluteFill}
-                showsUserLocation={!HEADING_SHADOW} // show default blue dot if HEADING_SHADOW is false
+                showsUserLocation={!HEADING_SHADOW}
             >
                 <UrlTile urlTemplate="https://tile.openstreetmap.org/{z}/{x}/{y}.png" maximumZ={19} />
 
-                {/* Full route */}
                 {routeGeometry.length > 0 && <Polyline coordinates={routeGeometry} strokeColor="#007AFF" strokeWidth={4} />}
-
-                {/* Current step */}
                 {currentStepCoords.length > 0 && <Polyline coordinates={currentStepCoords} strokeColor="#34C759" strokeWidth={6} />}
-
-                {/* Conditionally render HeadingPuck */}
-                {HEADING_SHADOW && currentLocation && (
-                    <HeadingPuck coordinate={currentLocation} heading={heading} />
-                )}
+                {HEADING_SHADOW && currentLocation && <HeadingPuck coordinate={currentLocation} heading={heading} />}
             </MapView>
 
-
-            {/* Top panel */}
             <View style={styles.topPanel}>
                 {steps[currentStep] && (
                     <>
@@ -171,7 +214,6 @@ export default function StepByStepNavigator() {
                 </View>
             </View>
 
-            {/* Bottom panel */}
             <View style={styles.bottomPanel}>
                 <View style={styles.destinationInfo}>
                     <Text style={styles.destinationName}>{destination}</Text>
@@ -207,19 +249,8 @@ const styles = StyleSheet.create({
     stepDistance: { color: '#007AFF', fontSize: 18, fontWeight: '700', marginBottom: 4 },
     stepText: { color: '#333', fontSize: 16, fontWeight: '600', textAlign: 'center' },
     stepCount: { color: '#666', fontSize: 12, marginTop: 2, marginBottom: 8 },
-    navigationButtons: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        width: '50%',
-        marginTop: 6,
-    },
-    arrowButton: {
-        backgroundColor: '#007AFF',
-        paddingVertical: 6,
-        paddingHorizontal: 16,
-        borderRadius: 6,
-        alignItems: 'center',
-    },
+    navigationButtons: { flexDirection: 'row', justifyContent: 'space-between', width: '50%', marginTop: 6 },
+    arrowButton: { backgroundColor: '#007AFF', paddingVertical: 6, paddingHorizontal: 16, borderRadius: 6, alignItems: 'center' },
     disabledButton: { backgroundColor: '#ccc' },
     arrowText: { color: '#fff', fontSize: 20, fontWeight: '700' },
     bottomPanel: {
@@ -241,12 +272,6 @@ const styles = StyleSheet.create({
     },
     destinationInfo: { alignItems: 'center', marginBottom: 12 },
     destinationName: { color: '#333', fontSize: 18, fontWeight: '600' },
-    destinationTime: { color: '#555', fontSize: 16, marginTop: 4 },
-    backButton: {
-        backgroundColor: '#ff453a',
-        paddingHorizontal: 24,
-        paddingVertical: 12,
-        borderRadius: 8,
-    },
+    backButton: { backgroundColor: '#ff453a', paddingHorizontal: 24, paddingVertical: 12, borderRadius: 8 },
     backButtonText: { color: '#fff', fontSize: 16, fontWeight: '700' },
 });

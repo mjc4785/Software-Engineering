@@ -36,7 +36,7 @@ const HEADING_SHADOW = true; // set false to use default map location indicator
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
-const BACKEND_URL = "https://be37ce20dcc5.ngrok-free.app/" // Replace with your ngrok url. Make sure to add a trailing slash!!
+const BACKEND_URL = "https://1976b818c288.ngrok-free.app/" // Replace with your ngrok url. Make sure to add a trailing slash!!
 
 export default function App() {
   const bottomSheetRef = useRef(null);
