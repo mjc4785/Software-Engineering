@@ -57,21 +57,6 @@ CURRENT FORMAT
 
 For this project, we want to have a react-native frontend, django backend, ad firebase DB for storage. for resources for Django, look [here](https://docs.djangoproject.com/en/5.2/) 
 
-The formatting for the repository is simple. In the UMBCNavigator folder is the manage.py file and another UMBCNavigator folder. 
-- **manage.py** is used in space of django-admin command. (if you don't know what that is that's ok.) We can do things like change the database or run the lightweight web server. 
-
-In the NESTED UMBCNavigator folder we have 5 files
-- **__init__.py**: Simply used as a marker to say that the folder is a package that can be used!
-- **asgi.py**: (Asynchronous Server Gateway Interface) Allows multiple functions to be running, switching between tasks based on priotiy. For example, live chats on the site while notifications are popping up
-- **settings.py**: Holds all the configuration for the project. For example, admin information, apps installed, middleware installed, etc. this can hold multiple configs and can be changed using manage.py
-- **urls.py**: Holds the urls needed for the website's possible pages and views. This also makes sure that the correct page is the one shown. 
-- **wsgi.py**: (Web Server Gateway Interface) Allows for simple one at a time processing or functions. For example, GET or POST calls like POSTing a venmo transaction or GETting the public transaction information posted to venmo.
-
-There also exists a "react-native" file for any front end work we may be doing. this folder contains two entries:
-- **text.txt**: A text file simply as a place holder for any other things that may be added to the directory
-- **html**: A folder that holds two other files. 
-    - **first.html**: A sample file for how to write simple html
-    - **two.html**: A sample file for how to incorperate OSM onto html
 
 ## Install and Setup
 
@@ -81,15 +66,56 @@ The Django version we are using is 5.2.6
 The Nodejs version is 22.20.0
 The expo versoin is 54.0.11
 
-## Build and Compile
+## How to Run It (Demo It)
+### Loading in sensitive information with environment variables
+1. Firstly in the most outermost UMBCNavigator folder, create a file called .env  
+It wll store sensitive information-- in this case the database connection url and ORS api key.
+The information will be stored in variables stored in your terminal/environment called **environment variables**
 
-Will be written when started code is done
+2. In .env, paste in this general structure and fill out the following information
+```
+DATABASE_URL=postgresql://postgres:...
+DEBUG=True
+ORS_KEY = ...
+```
+After `DATABASE_URL=` paste in the connection url Kristina sent in the Discord group chat. 
+After `ORS_KEY=` paste in your ORS API KEY. You can make an account and get an api key here: https://account.heigit.org/manage/key 
+
+3. Register your environment variables in your current environment
+Run:
+```
+export DATABASE_URL=...
+```
+and 
+```
+export ORS_KEY="..."
+```
+
+Note: Running the export command on DATABASE_URL doesnt need quotation marks but running it on ORS_KEY does. Be mindful there are no spaces as well. Replace the ... with the values in the .env file
+
+4. Check that your enironment variables are registered
+To test DATABASE_URL, run:
+```
+echo "$DATABASE_URL"
+```
+The output should return the environment variable
+
+To test ORS_KEY, run:
+```
+echo "$ORS_KEY"
+```
+The output should return the environment variable
+
+If the echo commands return nothing, retry step 3.
+
+5. Double check the .gitignore in the same folder. It should have .env in it. 
+
+### 
 
 ## Testing Strategy (optional)
 
 ## Functionalities
 
-Will be written in later sprint
 
 ## Sources
 
